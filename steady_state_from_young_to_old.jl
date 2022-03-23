@@ -2,7 +2,7 @@
 
 # Julia 1.7.2
 
-# February 2022
+# February, March 2022
 
 # I compute a steady state of the model
 
@@ -90,7 +90,7 @@ r_bar = [0.1, 0.1]
 
 
 # productivity
-A = [1.0, 1.0]
+A = [4.5, 5.5]
 # the productivity in place 1, the productivity in place 2
 
 # cohort-specific productivity 
@@ -111,14 +111,14 @@ A = [1.0, 1.0]
 
 # fertility per cohort-race-place 
 # I guess I need to restrict the value of α to get a steady state, 
-α = [   0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
-# the fertility of the youngest race 1 in place 1, ..., the fertility of the oldest race 1 in place 1,
-# the fertility of the youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
-# the fertility of the youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
-# the fertility of the youngest race 2 in place 2, ..., the fertility of the oldest race 2 in place 2
+α = [   0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
+# the fertility of the second youngest race 1 in place 1, ..., the fertility of the oldest race 1 in place 1,
+# the fertility of the second youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
+# the fertility of the second youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
+# the fertility of the second youngest race 2 in place 2, ..., the fertility of the oldest race 2 in place 2
 
 
 # function that maps wages, rents, and amenties to period utility
@@ -139,15 +139,19 @@ w = [   10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0,
 
 
 function utility(w, r, B, R, N, C, γ)
-        temp = log.(w./ kron(r .^ γ, fill(1.0, ((C-1)*R))))
+        temp0 = kron(r .^ γ, fill(1.0, (C-1)))
+        temp1 = repeat(temp0, R)
+        
+        
+        temp2 = log.(w./ temp1)
         u = []
-
+        
         for i in 1:(R*N)
-                u = [u; 0.0; temp[((i-1)*(C-1)+1):(i*(C-1))] ]
+                u = [u; 0.0; temp2[((i-1)*(C-1)+1):(i*(C-1))] ]
         end
-
+        
         u = u + log.(B)
-
+        
         return u
 end
 
@@ -414,6 +418,8 @@ r_SS_cs_A_1 = zeros(N, K)
 V_SS_cs_A_1 = zeros((R*N*C), K)
 μ_SS_cs_A_1 = zeros((R*N*N*(C-1)), K)
 
+u_SS_cs_A_1 = zeros((R*N*C), K)
+
 
 dif_SS_cs_A_1 = zeros((R*N*C), K)
 
@@ -436,6 +442,7 @@ for i in 1:K
         r_SS_cs_A_1[:, i] = r
         V_SS_cs_A_1[:, i] = V 
         μ_SS_cs_A_1[:, i] = μ
+        u_SS_cs_A_1[:, i] = u
 
 
 
@@ -464,11 +471,12 @@ plot!(A_1_range, r_SS_cs_A_1[2, :])
 
 plot(A_1_range, w_SS_cs_A_1[1, :])
 plot!(A_1_range, w_SS_cs_A_1[(C-1)+1, :])
+plot!(A_1_range, w_SS_cs_A_1[2*(C-1)+1, :])
 
 plot(A_1_range, w_SS_cs_A_1[(C-1), :])
 plot!(A_1_range, w_SS_cs_A_1[2*(C-1), :])
-
-
+plot!(A_1_range, w_SS_cs_A_1[3*(C-1), :])
+plot!(A_1_range, w_SS_cs_A_1[4*(C-1), :])
 
 plot(A_1_range, V_SS_cs_A_1[1, :])
 plot!(A_1_range, V_SS_cs_A_1[2, :])
@@ -486,6 +494,41 @@ plot!(A_1_range, V_SS_cs_A_1[(C+5), :])
 plot!(A_1_range, V_SS_cs_A_1[(C+6), :])
 plot!(A_1_range, V_SS_cs_A_1[(C+7), :])
 plot!(A_1_range, V_SS_cs_A_1[(2*C), :])
+plot!(A_1_range, V_SS_cs_A_1[(2*C+1), :])
+plot!(A_1_range, V_SS_cs_A_1[(2*C+2), :])
+plot!(A_1_range, V_SS_cs_A_1[(2*C+3), :])
+plot!(A_1_range, V_SS_cs_A_1[(2*C+4), :])
+plot!(A_1_range, V_SS_cs_A_1[(2*C+5), :])
+plot!(A_1_range, V_SS_cs_A_1[(2*C+6), :])
+plot!(A_1_range, V_SS_cs_A_1[(2*C+7), :])
+plot!(A_1_range, V_SS_cs_A_1[(3*C), :])
+
+plot(A_1_range, u_SS_cs_A_1[1, :])
+plot!(A_1_range, u_SS_cs_A_1[2, :])
+plot!(A_1_range, u_SS_cs_A_1[3, :])
+plot!(A_1_range, u_SS_cs_A_1[4, :])
+plot!(A_1_range, u_SS_cs_A_1[5, :])
+plot!(A_1_range, u_SS_cs_A_1[6, :])
+plot!(A_1_range, u_SS_cs_A_1[7, :])
+plot!(A_1_range, u_SS_cs_A_1[C, :])
+plot!(A_1_range, u_SS_cs_A_1[(C+1), :])
+plot!(A_1_range, u_SS_cs_A_1[(C+2), :])
+plot!(A_1_range, u_SS_cs_A_1[(C+3), :])
+plot!(A_1_range, u_SS_cs_A_1[(C+4), :])
+plot!(A_1_range, u_SS_cs_A_1[(C+5), :])
+plot!(A_1_range, u_SS_cs_A_1[(C+6), :])
+plot!(A_1_range, u_SS_cs_A_1[(C+7), :])
+plot!(A_1_range, u_SS_cs_A_1[(2*C), :])
+plot!(A_1_range, u_SS_cs_A_1[(2*C+1), :])
+plot!(A_1_range, u_SS_cs_A_1[(2*C+2), :])
+plot!(A_1_range, u_SS_cs_A_1[(2*C+3), :])
+plot!(A_1_range, u_SS_cs_A_1[(2*C+4), :])
+plot!(A_1_range, u_SS_cs_A_1[(2*C+5), :])
+plot!(A_1_range, u_SS_cs_A_1[(2*C+6), :])
+plot!(A_1_range, u_SS_cs_A_1[(2*C+7), :])
+plot!(A_1_range, u_SS_cs_A_1[(3*C), :])
+
+
 
 
 
@@ -574,7 +617,7 @@ plot!(B_1_1_range, V_SS_cs_B_1_1[(C+7), :])
 plot!(B_1_1_range, V_SS_cs_B_1_1[(2*C), :])
 
 
-plot(B_1_1_range, V_SS_cs_B_1_1[2*C+1, :])
+plot!(B_1_1_range, V_SS_cs_B_1_1[2*C+1, :])
 plot!(B_1_1_range, V_SS_cs_B_1_1[2*C+2, :])
 plot!(B_1_1_range, V_SS_cs_B_1_1[2*C+3, :])
 plot!(B_1_1_range, V_SS_cs_B_1_1[2*C+4, :])
@@ -652,7 +695,7 @@ plot!(κ_0_1_range, L_SS_cs_κ_0_1[6, :])
 plot!(κ_0_1_range, L_SS_cs_κ_0_1[7, :])
 plot!(κ_0_1_range, L_SS_cs_κ_0_1[C, :])
 
-plot(κ_0_1_range, L_SS_cs_κ_0_1[(C+1), :])
+plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+1), :])
 plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+2), :])
 plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+3), :])
 plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+4), :])
