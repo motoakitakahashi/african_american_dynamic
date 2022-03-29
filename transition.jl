@@ -8,6 +8,7 @@
 
 using LinearAlgebra, Statistics, Compat, Plots
 using CSV
+
 using RData
 using DataFrames
 using SpecialFunctions
@@ -72,10 +73,10 @@ s = repeat(s_period, 1, T)
 # migration costs 
 # note that the oldest can no longer migrate
 
-τ_period = [     0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
-                 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-                 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
-                 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0]
+τ_period = [     0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0,
+                 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0,
+                 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0,
+                 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0]
 
 # the 1st row:
 # the youngest race 1's migration cost from place 1 to place 1, the youngest race 1's migration cost from place 1 to place 2, ...,
@@ -326,6 +327,38 @@ function rent(w, L, r_bar, η, γ, N, R, C)
     return output
 end
 
+function expected_value_transition(u, s, ν, τ, R, N, C, V_t_plus_1)
+        # transform vectors to a matrices
+        τ_mat = reshape(τ, (N*(C-1)), (R*N))
+        τ_mat = τ_mat'
+    
+        u_mat = reshape(u, C, (R*N))
+        u_mat = u_mat'
+    
+        s_mat = reshape(s, (C-1), R)
+        s_mat = s_mat'
+    
+        V_mat_t_plus_1 = reshape(V_t_plus_1, C, (R*N))'
+        V_mat = zeros(R*N, C)
+    
+        V_mat[:, C] =  u_mat[:, C]
+        
+        for i in 1:R
+                # we fill in expected values from the second oldest cohort to the youngest cohort
+                for k in 1:(C-1)
+                        for j in 1:N                  
+                                V_mat[((i-1)*N+j), (C-k)] = (u_mat[((i-1)*N+j), (C-k)] 
+                                + ν * log(sum(exp.(s_mat[i, (C-k)] * V_mat_t_plus_1[((i-1)*N+1):(i*N),(C-k+1)] - τ_mat[((i-1)*N+j), ((C-k-1)*N+1):((C-k)*N)]) .^ (1/ν) ) ) )
+                        end
+                end
+        end
+    
+        # return a vector, not a matrix
+        output = reshape(V_mat', (R*N*C) )
+        return output
+    
+    end
+
 
 # First I need to compute a steady steat toward which a dynamic path converges
 
@@ -338,7 +371,7 @@ L_in = fill(10, (R*N*C, T))
 # ...,
 # the 32nd row is the population of the oldest race 2 in place 2
 
-tol = 10 ^ (-7)
+tol = 10 ^ (-8)
 maxit = 1000
 
 # the dumpening parameter for iteration
@@ -389,10 +422,11 @@ maximum(abs.(L_mat_100[1, :] - L_mat_100[3, :]))
 
 
 # Next I compute population backward from the last period T
+λ = 0.5
 
 L = fill(10.0, (R*N*C), T)
 
-V = fill(0.0, (R*N*C), T)
+V = fill(1.0, (R*N*C), T)
 
 # the last period is the steady state
 L[:, T] = LV_100[:, 1]
@@ -402,6 +436,313 @@ V[:, T] = LV_100[:, 2]
 L[:, 1] = LV_100[:, 1]
 V[:, 1] = LV_100[:, 2]
 # the "perceived" expected value before an unanticipated (MIT) shock happens in period 1
+
+# write a function which maps populations and expected values in period t to populations and expected values in period t-1.
+
+function population_expected_value_backward(s_t_minus_1, V_t, ν_t_minus_1, τ_t_minus_1, R, N, C, L_t, M_t, L_t_minus_1, σ_0_t_minus_1, 
+        σ_1_t_minus_1, κ_0_t_minus_1, κ_1_t_minus_1, A_t_minus_1, r_bar_t_minus_1, η_t_minus_1, γ_t_minus_1, B_t_minus_1)
+
+        L_t_minus_1_mat = reshape(L_t_minus_1, C, R*N)'
+        L_t_mat = reshape(L_t, C, R*N)'
+        M_t_mat = reshape(M_t, C, R*N)'
+
+        μ_t_minus_1 = migration_rate(s_t_minus_1, V_t, ν_t_minus_1, τ_t_minus_1, R, N, C)
+
+        μ_mat_t_minus_1 = reshape(μ_t_minus_1, (C-1), (R*N*N))'
+
+        μ_mat_t_minus_1_wide = zeros(N*R, N*(C-1))
+
+        for i in 1:R
+                for j in 1:(C-1)
+                        for k in 1:N
+                                μ_mat_t_minus_1_wide[((i-1)*N+1):(i*N) , (j-1)*N+k] = μ_mat_t_minus_1[((i-1)*N*N+(k-1)*N+1):((i-1)*N*N+k*N), j]
+                        end
+        
+                end
+        end
+
+        s_mat_t_minus_1 = reshape(s_t_minus_1, (C-1), R)'
+        s_mat_t_minus_1_wide = kron(s_mat_t_minus_1, ones(N, N))
+
+        s_μ_t_minus_1_wide = s_mat_t_minus_1_wide .* μ_mat_t_minus_1_wide
+
+        # I compute the populations of the youngest to the second oldest
+
+        for i in 1:R
+        for j in 1:(C-1)
+                # cohort c in period t-1 is t-1-c years old, cohort c in period 
+                L_t_minus_1_mat[((i-1)*N+1):(i*N), j] = ( inv(s_μ_t_minus_1_wide[((i-1)*N+1):(i*N), ((j-1)*N+1):(j*N)])
+                 * (L_t_mat[((i-1)*N+1):(i*N), (j+1)] - M_t_mat[((i-1)*N+1):(i*N), (j+1)]) )
+                
+
+        end
+
+        end
+
+        # temporaly the oldest is distributed as in the final steady state
+        # L_t_minus_1_mat[:, C] = L_mat_100[:, C]
+
+        # temporaly guess the oldest is distributed as the second oldest is
+        # L_t_minus_1_mat[:, C] = L_t_minus_1_mat[:, C-1]
+
+        L_t_minus_1 = reshape(L_t_minus_1_mat', R*N*C)
+
+        # given population in each race-place-cohort, I compute wages 
+        # before that, I compute cohort-place-lavel and place-level labor
+        L_cohort_t_minus_1 = agg_labor_cohort(L_t_minus_1, σ_1_t_minus_1, κ_1_t_minus_1, N, R, C)
+        L_place_t_minus_1 = agg_labor_place(L_cohort_t_minus_1, σ_0_t_minus_1, κ_0_t_minus_1, N, R, C)
+
+        w_t_minus_1 = wage(σ_0_t_minus_1, σ_1_t_minus_1, A_t_minus_1, κ_0_t_minus_1, κ_1_t_minus_1, N, R, C, L_place_t_minus_1, L_cohort_t_minus_1, L_t_minus_1)
+
+        r_t_minus_1 = rent(w_t_minus_1, L_t_minus_1, r_bar_t_minus_1, η_t_minus_1, γ_t_minus_1, N, R, C)
+
+        u_t_minus_1 = utility(w_t_minus_1, r_t_minus_1, B_t_minus_1, R, N, C, γ_t_minus_1)
+
+        V_t_minus_1 = expected_value_transition(u_t_minus_1, s_t_minus_1, ν_t_minus_1, τ_t_minus_1, R, N, C, V_t)
+
+        output = [L_t_minus_1 V_t_minus_1]
+end
+
+# write a function to yield a transition path
+function transition_path(R, C, N, T, λ, L_in, V_in, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+        L = L_in 
+        V = V_in 
+
+        L_new = fill(10.0, (R*N*C), T)
+        V_new = fill(1.0, (R*N*C), T)
+
+        L_new[:, 1] = L[:, 1]
+        L_new[:, T] = L[:, T]
+
+        V_new[:, 1] = V[:, 1]
+        V_new[:, T] = V[:, T]
+
+
+        dif = 1.0
+        count = 0
+
+        while count < maxit # dif > tol && count < maxit
+
+                for i in 1:(T-2)
+                        s_t_minus_1 = s[:, T-i]
+                        V_t = V[:, T-i+1]
+                        ν_t_minus_1 = ν[1, T-i]
+                        τ_t_minus_1 = τ[:, T-i]
+                        L_t = L[:, T-i+1]
+                        M_t = M[:, T-i+1]
+                        L_t_minus_1 = L[:, T-i]
+                        σ_0_t_minus_1 = σ_0[1, T-i]
+                        σ_1_t_minus_1 = σ_1[1, T-i]
+                        κ_0_t_minus_1 = κ_0[:, T-i]
+                        κ_1_t_minus_1 = κ_1[:, T-i]
+                        A_t_minus_1 = A[:, T-i]
+                        r_bar_t_minus_1 = r_bar[:, T-i]
+                        η_t_minus_1 = η[1, T-i]
+                        γ_t_minus_1 = γ[1, T-i]
+                        B_t_minus_1 = B[:, T-i]
+                
+                        LV_t_minus_1_new = population_expected_value_backward(s_t_minus_1, V_t, ν_t_minus_1, τ_t_minus_1, R, N, C, L_t, M_t, L_t_minus_1, σ_0_t_minus_1, 
+                        σ_1_t_minus_1, κ_0_t_minus_1, κ_1_t_minus_1, A_t_minus_1, r_bar_t_minus_1, η_t_minus_1, γ_t_minus_1, B_t_minus_1)
+                
+                        L_new[:, T-i] = λ * LV_t_minus_1_new[:, 1] + (1-λ) * L[:, T-i]
+                        V_new[:, T-i] = λ * LV_t_minus_1_new[:, 2] + (1-λ) * V[:, T-i]
+                end
+
+                for i in 1:T-2
+                        L_t = L_new[:, i]
+                        s_t = s[:, i]
+                        ν_t = ν[1, i]
+                        τ_t = τ[:, i]
+                        V_t_plus_1 = V_new[:, i+1]
+                        α_t_plus_1 = α[:, i+1]
+                        M_t_plus_1 = M[:, i+1]
+                        μ_t = migration_rate(s_t, V_t_plus_1, ν_t, τ_t, R, N, C)
+                        L_t_plus_1_new = population(μ_t, s_t, L_t, α_t_plus_1, C, R, N) + M_t_plus_1
+                
+                        L_new[:, i+1] = λ * L_t_plus_1_new + (1-λ) * L_new[:, i+1]
+                
+                end
+
+                dif = maximum(abs.((L_new - L)./L))
+
+                L = L_new
+                V = V_new
+
+                count = count + 1
+
+        end
+
+        output = [fill(dif, R*N*C) fill(count, R*N*C) L V]
+
+        # if dif > tol
+        #         output = "not converged"
+
+        # else
+        #         output = [L V]
+        # end
+
+        return output
+
+end
+
+L_in = fill(10.0, (R*N*C), T)
+
+V_in = fill(1.0, (R*N*C), T)
+
+# the last period is the steady state
+L_in[:, T] = LV_100[:, 1]
+V_in[:, T] = LV_100[:, 2]
+
+# the initial period (0) is the steady state
+L_in[:, 1] = LV_100[:, 1]
+V_in[:, 1] = LV_100[:, 2]
+
+LV_path = transition_path(R, C, N, T, λ, L_in, V_in, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+
+
+
+
+
+
+
+
+λ = 0.5
+
+L = fill(10.0, (R*N*C), T)
+
+V = fill(1.0, (R*N*C), T)
+
+# the last period is the steady state
+L[:, T] = LV_100[:, 1]
+V[:, T] = LV_100[:, 2]
+
+# the initial period (0) is the steady state
+L[:, 1] = LV_100[:, 1]
+V[:, 1] = LV_100[:, 2]
+
+# the economy is at a steady state in period 0.
+# so I compute a transition path from period 1 to period T-1
+for i in 1:(T-2)
+        s_t_minus_1 = s[:, T-i]
+        V_t = V[:, T-i+1]
+        ν_t_minus_1 = ν[1, T-i]
+        τ_t_minus_1 = τ[:, T-i]
+        L_t = L[:, T-i+1]
+        M_t = M[:, T-i+1]
+        L_t_minus_1 = L[:, T-i]
+        σ_0_t_minus_1 = σ_0[1, T-i]
+        σ_1_t_minus_1 = σ_1[1, T-i]
+        κ_0_t_minus_1 = κ_0[:, T-i]
+        κ_1_t_minus_1 = κ_1[:, T-i]
+        A_t_minus_1 = A[:, T-i]
+        r_bar_t_minus_1 = r_bar[:, T-i]
+        η_t_minus_1 = η[1, T-i]
+        γ_t_minus_1 = γ[1, T-i]
+        B_t_minus_1 = B[:, T-i]
+
+        LV_t_minus_1_new = population_expected_value_backward(s_t_minus_1, V_t, ν_t_minus_1, τ_t_minus_1, R, N, C, L_t, M_t, L_t_minus_1, σ_0_t_minus_1, 
+        σ_1_t_minus_1, κ_0_t_minus_1, κ_1_t_minus_1, A_t_minus_1, r_bar_t_minus_1, η_t_minus_1, γ_t_minus_1, B_t_minus_1)
+
+        L[:, T-i] = λ * LV_t_minus_1_new[:, 1] + (1-λ) * L[:, T-i]
+        V[:, T-i] = λ * LV_t_minus_1_new[:, 2] + (1-λ) * V[:, T-i]
+
+end
+
+# I re-compute populations in period t using expected values in period t+1
+for i in 1:T-2
+        L_t = L[:, i]
+        s_t = s[:, i]
+        ν_t = ν[1, i]
+        τ_t = τ[:, i]
+        V_t_plus_1 = V[:, i+1]
+        α_t_plus_1 = α[:, i+1]
+        M_t_plus_1 = M[:, i+1]
+        μ_t = migration_rate(s_t, V_t_plus_1, ν_t, τ_t, R, N, C)
+        L_t_plus_1_new = population(μ_t, s_t, L_t, α_t_plus_1, C, R, N) + M_t_plus_1
+
+        L[:, i+1] = λ * L_t_plus_1_new + (1-λ) * L[:, i+1]
+
+end
+
+reshape(L[:, T-3], C, R*N)'
+reshape(V[:, T-3], C, R*N)'
+
+
+
+function population_expected_value_backward_up_to_L(s_t_minus_1, V_t, ν_t_minus_1, τ_t_minus_1, R, N, C, L_t, M_t, L_t_minus_1, σ_0_t_minus_1, 
+        σ_1_t_minus_1, κ_0_t_minus_1, κ_1_t_minus_1, A_t_minus_1, r_bar_t_minus_1, η_t_minus_1, γ_t_minus_1, B_t_minus_1)
+
+        L_t_minus_1_mat = reshape(L_t_minus_1, C, R*N)'
+        L_t_mat = reshape(L_t, C, R*N)'
+        M_t_mat = reshape(M_t, C, R*N)'
+
+        μ_t_minus_1 = migration_rate(s_t_minus_1, V_t, ν_t_minus_1, τ_t_minus_1, R, N, C)
+
+        μ_mat_t_minus_1 = reshape(μ_t_minus_1, (C-1), (R*N*N))'
+
+        μ_mat_t_minus_1_wide = zeros(N*R, N*(C-1))
+
+        for i in 1:R
+                for j in 1:(C-1)
+                        for k in 1:N
+                                μ_mat_t_minus_1_wide[((i-1)*N+1):(i*N) , (j-1)*N+k] = μ_mat_t_minus_1[((i-1)*N*N+(k-1)*N+1):((i-1)*N*N+k*N), j]
+                        end
+        
+                end
+        end
+
+        s_mat_t_minus_1 = reshape(s_t_minus_1, (C-1), R)'
+        s_mat_t_minus_1_wide = kron(s_mat_t_minus_1, ones(N, N))
+
+        s_μ_t_minus_1_wide = s_mat_t_minus_1_wide .* μ_mat_t_minus_1_wide
+
+        # I compute the populations of the youngest to the second oldest
+
+        for i in 1:R
+        for j in 1:(C-1)
+                # cohort c in period t-1 is t-1-c years old, cohort c in period 
+                L_t_minus_1_mat[((i-1)*N+1):(i*N), j] = ( inv(s_μ_t_minus_1_wide[((i-1)*N+1):(i*N), ((j-1)*N+1):(j*N)])
+                 * (L_t_mat[((i-1)*N+1):(i*N), (j+1)] - M_t_mat[((i-1)*N+1):(i*N), (j+1)]) )
+                
+
+        end
+
+        end
+
+        # temporaly guess the oldest is distributed as the second oldest is
+        L_t_minus_1_mat[:, C] = L_t_minus_1_mat[:, C-1]
+
+        L_t_minus_1 = reshape(L_t_minus_1_mat', R*N*C)
+
+        return L_t_minus_1_mat
+end
+
+# i = 4
+i = 4
+
+s_t_minus_1 = s[:, T-i]
+V_t = V[:, T-i+1]
+ν_t_minus_1 = ν[1, T-i]
+τ_t_minus_1 = τ[:, T-i]
+L_t = L[:, T-i+1]
+M_t = M[:, T-i+1]
+L_t_minus_1 = L[:, T-i]
+σ_0_t_minus_1 = σ_0[1, T-i]
+σ_1_t_minus_1 = σ_1[1, T-i]
+κ_0_t_minus_1 = κ_0[:, T-i]
+κ_1_t_minus_1 = κ_1[:, T-i]
+A_t_minus_1 = A[:, T-i]
+r_bar_t_minus_1 = r_bar[:, T-i]
+η_t_minus_1 = η[1, T-i]
+γ_t_minus_1 = γ[1, T-i]
+B_t_minus_1 = B[:, T-i]
+L_T_minus_4 = population_expected_value_backward_up_to_L(s_t_minus_1, V_t, ν_t_minus_1, τ_t_minus_1, R, N, C, L_t, M_t, L_t_minus_1, σ_0_t_minus_1, 
+σ_1_t_minus_1, κ_0_t_minus_1, κ_1_t_minus_1, A_t_minus_1, r_bar_t_minus_1, η_t_minus_1, γ_t_minus_1, B_t_minus_1)
+
+
+
+
+
 
 # let's compute the populations in period T-1
 μ_T_minus_1 = migration_rate(s[:, T-1], V[:, T], ν[:, T-1], τ[:, T-1], R, N, C)
@@ -431,7 +772,7 @@ L_T_minus_1_mat = reshape(L[:, T-1], C, R*N)'
 
 M_100_mat = reshape(M[:, T], C, R*N)'
 
-# first I compute the populations of the youngest to the second oldest
+# I compute the populations of the youngest to the second oldest
 
 for i in 1:R
         for j in 1:(C-1)
@@ -444,3 +785,23 @@ for i in 1:R
 
 end
 
+# temporaly guess the oldest is distributed as the second oldest is
+L_T_minus_1_mat[:, C] = L_T_minus_1_mat[:, C-1]
+
+
+L_T_minus_1 = reshape(L_T_minus_1_mat', R*N*C)
+
+# given population in each race-place-cohort, I compute wages 
+# before that, I compute cohort-place-lavel and place-level labor
+L_cohort_T_minus_1 = agg_labor_cohort(L_T_minus_1, σ_1[1, T-1], κ_1[:, T-1], N, R, C)
+L_place_T_minus_1 = agg_labor_place(L_cohort_T_minus_1, σ_0[1, T-1], κ_0[:, T-1], N, R, C)
+
+w_T_minus_1 = wage(σ_0[1, T-1], σ_1[1, T-1], A[:, T-1], κ_0[:, T-1], κ_1[:, T-1], N, R, C, L_place_T_minus_1, L_cohort_T_minus_1, L_T_minus_1)
+
+r_T_minus_1 = rent(w_T_minus_1, L_T_minus_1, r_bar[:, T-1], η[1, T-1], γ[1, T-1], N, R, C)
+
+u_T_minus_1 = utility(w_T_minus_1, r_T_minus_1, B[:, T-1], R, N, C, γ[1, T-1])
+
+V_T_minus_1 = expected_value_transition(u_T_minus_1, s[:, T-1], ν[1, T-1], τ[:, T-1], R, N, C, V[:, T])
+
+μ_T_minus_2 = 
