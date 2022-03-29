@@ -378,7 +378,7 @@ maxit = 1000
 λ = 0.5
 
 function steady_state(tol, maxit, N, C, R, ν, σ_0, σ_1, γ, B, s, τ, r_bar, η, A, κ_0, κ_1, α, L_in, λ)
-        L = L_in 
+        L[:, :] = L_in[:, :] 
         V = []
 
         dif = 1.0
@@ -436,6 +436,199 @@ V[:, T] = LV_100[:, 2]
 L[:, 1] = LV_100[:, 1]
 V[:, 1] = LV_100[:, 2]
 # the "perceived" expected value before an unanticipated (MIT) shock happens in period 1
+
+V_new = fill(1.0, (R*N*C), T)
+V_new[:, T] = LV_100[:, 2]
+V_new[:, 1] = LV_100[:, 2]
+
+# given a value matrix, compute populations forward 
+
+for i in 1:T-2
+        # given a value matrix, compute populations forward
+        L_t = L[:, i]
+        s_t = s[:, i]
+        ν_t = ν[1, i]
+        τ_t = τ[:, i]
+        V_t_plus_1 = V[:, i+1]
+        α_t_plus_1 = α[:, i+1]
+        M_t_plus_1 = M[:, i+1]
+        μ_t = migration_rate(s_t, V_t_plus_1, ν_t, τ_t, R, N, C)
+        L_t_plus_1 = population(μ_t, s_t, L_t, α_t_plus_1, C, R, N) + M_t_plus_1
+
+        # given a population matrix, compute wages and rents. Then compute period utilities.
+        # Then update expected values.
+
+        σ_1_t_plus_1 = σ_1[1, i+1]
+        κ_1_t_plus_1 = κ_1[:, i+1]
+
+        L_cohort_t_plus_1 = agg_labor_cohort(L_t_plus_1, σ_1_t_plus_1, κ_1_t_plus_1, N, R, C)
+
+        σ_0_t_plus_1 = σ_0[1, i+1]
+        κ_0_t_plus_1 = κ_0[:, i+1]
+
+
+        L_place_t_plus_1 = agg_labor_place(L_cohort_t_plus_1, σ_0_t_plus_1, κ_0_t_plus_1, N, R, C)
+
+        A_t_plus_1 = A[:, i+1]
+
+        w_t_plus_1 = wage(σ_0_t_plus_1, σ_1_t_plus_1, A_t_plus_1, κ_0_t_plus_1, κ_1_t_plus_1, N, R, C, L_place_t_plus_1, L_cohort_t_plus_1, L_t_plus_1)
+
+        r_bar_t_plus_1 = r_bar[:, i+1]
+        γ_t_plus_1 = γ[1, i+1]
+        η_t_plus_1 = η[1, i+1]
+
+
+
+        r_t_plus_1 = rent(w_t_plus_1, L_t_plus_1, r_bar_t_plus_1, η_t_plus_1, γ_t_plus_1, N, R, C)
+
+        B_t_plus_1 = B[:, i+1]
+
+        u_t_plus_1 = utility(w_t_plus_1, r_t_plus_1, B_t_plus_1, R, N, C, γ_t_plus_1)
+
+        s_t_plus_1 = s[:, i+1]
+        τ_t_plus_1 = τ[:, i+1]
+        V_t_plus_2 = V[:, i+2]
+        ν_t_plus_1 = ν[1, i+1]
+
+
+
+        V_t_plus_1 = expected_value_transition(u_t_plus_1, s_t_plus_1, ν_t_plus_1, τ_t_plus_1, R, N, C, V_t_plus_2)
+
+        V_new[:, i+1] = V_t_plus_1
+
+        # L[:, i+1] = L_t_plus_1
+
+
+
+
+
+
+
+
+
+
+
+end
+
+λ_2 = 1.0
+
+L_in = fill(10.0, (R*N*C), T)
+
+V_in = fill(1.0, (R*N*C), T)
+V_in_2 = fill(2.0, (R*N*C), T)
+
+# the last period is the steady state
+L_in[:, T] = LV_100[:, 1]
+V_in[:, T] = LV_100[:, 2]
+V_in_2[:, T] = LV_100[:, 2]
+
+# the initial period (0) is the steady state
+L_in[:, 1] = LV_100[:, 1]
+V_in[:, 1] = LV_100[:, 2]
+V_in_2[:, 1] = LV_100[:, 2]
+# the "perceived" expected value before an unanticipated (MIT) shock happens in period 1
+
+
+function transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+        L = L_in
+        V = V_in 
+        V_new = V_in_2
+        dif = 1.0
+        count = 0
+
+
+        while dif > tol && count < maxit
+
+                for i in 1:T-2
+                        # given a value matrix, compute populations forward
+                        L_t = L[:, i]
+                        s_t = s[:, i]
+                        ν_t = ν[1, i]
+                        τ_t = τ[:, i]
+                        V_t_plus_1 = V[:, i+1]
+                        α_t_plus_1 = α[:, i+1]
+                        M_t_plus_1 = M[:, i+1]
+                        μ_t = migration_rate(s_t, V_t_plus_1, ν_t, τ_t, R, N, C)
+                        L_t_plus_1 = population(μ_t, s_t, L_t, α_t_plus_1, C, R, N) + M_t_plus_1
+                
+                        # given a population matrix, compute wages and rents. Then compute period utilities.
+                        # Then update expected values.
+                
+                        σ_1_t_plus_1 = σ_1[1, i+1]
+                        κ_1_t_plus_1 = κ_1[:, i+1]
+                
+                        L_cohort_t_plus_1 = agg_labor_cohort(L_t_plus_1, σ_1_t_plus_1, κ_1_t_plus_1, N, R, C)
+                
+                        σ_0_t_plus_1 = σ_0[1, i+1]
+                        κ_0_t_plus_1 = κ_0[:, i+1]
+                
+                
+                        L_place_t_plus_1 = agg_labor_place(L_cohort_t_plus_1, σ_0_t_plus_1, κ_0_t_plus_1, N, R, C)
+                
+                        A_t_plus_1 = A[:, i+1]
+                
+                        w_t_plus_1 = wage(σ_0_t_plus_1, σ_1_t_plus_1, A_t_plus_1, κ_0_t_plus_1, κ_1_t_plus_1, N, R, C, L_place_t_plus_1, L_cohort_t_plus_1, L_t_plus_1)
+                
+                        r_bar_t_plus_1 = r_bar[:, i+1]
+                        γ_t_plus_1 = γ[1, i+1]
+                        η_t_plus_1 = η[1, i+1]
+                
+                
+                
+                        r_t_plus_1 = rent(w_t_plus_1, L_t_plus_1, r_bar_t_plus_1, η_t_plus_1, γ_t_plus_1, N, R, C)
+                
+                        B_t_plus_1 = B[:, i+1]
+                
+                        u_t_plus_1 = utility(w_t_plus_1, r_t_plus_1, B_t_plus_1, R, N, C, γ_t_plus_1)
+                
+                        s_t_plus_1 = s[:, i+1]
+                        τ_t_plus_1 = τ[:, i+1]
+                        V_t_plus_2 = V[:, i+2]
+                        ν_t_plus_1 = ν[1, i+1]
+                
+                
+                
+                        V_t_plus_1 = expected_value_transition(u_t_plus_1, s_t_plus_1, ν_t_plus_1, τ_t_plus_1, R, N, C, V_t_plus_2)
+                
+                        V_new[:, i+1] = V_t_plus_1
+                
+                        L[:, i+1] = L_t_plus_1                
+                end
+
+                dif = maximum(abs.((V_new - V)./V))
+
+                count = count + 1
+
+                V = λ_2 * V_new + (1 - λ_2) * V
+
+
+        end
+
+        output = [fill(count, N*R*C) fill(dif, N*R*C) V L]
+        return output
+end
+
+path1 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+
+A_2[:, :] = A[:, :]
+A_2[:, 2] = [3.0, 8.0]
+
+path2 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # write a function which maps populations and expected values in period t to populations and expected values in period t-1.
 
@@ -504,7 +697,7 @@ function population_expected_value_backward(s_t_minus_1, V_t, ν_t_minus_1, τ_t
 end
 
 # write a function to yield a transition path
-function transition_path(R, C, N, T, λ, L_in, V_in, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+function transition_path_old(R, C, N, T, λ, L_in, V_in, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
         L = L_in 
         V = V_in 
 
