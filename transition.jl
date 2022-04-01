@@ -19,6 +19,12 @@ using QuerySQLite
 using RData
 using Missings
 
+# for the main desktop
+cd("D:/onedrive/OneDrive - The Pennsylvania State University/dynamic/code")
+
+# for the laptop
+# cd("C:/Users/takah/OneDrive - The Pennsylvania State University/dynamic/code")
+
 # suppose the economy converges to a steady state in 100 periods from an initial period
 # In period 0, the economy is at the steady state.
 # In period 1, a shock hits the economy.
@@ -73,10 +79,10 @@ s = repeat(s_period, 1, T)
 # migration costs 
 # note that the oldest can no longer migrate
 
-τ_period = [     0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0,
-                 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0,
-                 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0,
-                 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0]
+τ_period = [     0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+                 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+                 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+                 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0]
 
 # the 1st row:
 # the youngest race 1's migration cost from place 1 to place 1, the youngest race 1's migration cost from place 1 to place 2, ...,
@@ -238,10 +244,7 @@ function population(μ, s, L, α, C, R, N)
     L_mat_input = reshape(L, C, (R*N))'
     
     L_mat_output = zeros((R*N), C)
-    
-    # the number of the new-born
-    L_mat_output[:, 1] = sum(α_mat .* L_mat_input, dims = 2)
-    
+        
     temp = kron(L_mat_input[:,1:(C-1)], ones(N)) .* kron(s_mat, ones(N*N)) .* μ_mat 
     
     for i in 1:R
@@ -253,6 +256,9 @@ function population(μ, s, L, α, C, R, N)
                     end
             end
     end
+
+    # the number of the new-borns
+    L_mat_output[:, 1] = sum(α_mat .* L_mat_output, dims = 2)
     
     output = reshape(L_mat_output', (R*N*C))
 
@@ -524,20 +530,33 @@ function transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_
 end
 
 path1 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
-
-
-
-
+V1 = path1[:, 3:3+(T-1)]
+L1 = path1[:, 3+(T-1)+1:3+2*(T-1)]
 
 A_2 = zeros(N, T)
 A_2[:, :] = A[:, :]
-A_2[:, 2] = [3.0, 8.0]
+A_2[:, 4] = [2.0, 8.0]
 
 path2 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A_2, r_bar, η, γ, B, tol, maxit)
 
+V2 = path2[:, 3:3+(T-1)]
+L2 = path2[:, 3+(T-1)+1:3+2*(T-1)]
+
+
+# compare expected values for 20s
+plot(0:10, V1[3, :1:11], label = "location 1 (baseline)")
+plot!(0:10, V1[C+3, :1:11], label = "location 2 (baseline)")
+plot!(0:10, V2[3, :1:11], label = "location 1 (counterfactual)")
+plot!(0:10, V2[C+3, :1:11], label = "location 2 (counterfactual)")
+xlabel!("period")
+ylabel!("expected value")
+savefig("../output/transition/prod_ex_val.pdf")
 
 
 
-
+plot(0:10, L1[3, :1:11])
+plot!(0:10, L1[C+3, :1:11])
+plot!(0:10, L2[3, :1:11])
+plot!(0:10, L2[C+3, :1:11])
 
 

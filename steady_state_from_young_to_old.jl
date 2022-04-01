@@ -245,9 +245,7 @@ function population(μ, s, L, α, C, R, N)
         L_mat_input = reshape(L, C, (R*N))'
         
         L_mat_output = zeros((R*N), C)
-        
-        # the number of the new-born
-        L_mat_output[:, 1] = sum(α_mat .* L_mat_input, dims = 2)
+
         
         temp = kron(L_mat_input[:,1:(C-1)], ones(N)) .* kron(s_mat, ones(N*N)) .* μ_mat 
         
@@ -260,6 +258,9 @@ function population(μ, s, L, α, C, R, N)
                         end
                 end
         end
+
+        # the number of the new-borns
+        L_mat_output[:, 1] = sum(α_mat .* L_mat_output, dims = 2)
         
         output = reshape(L_mat_output', (R*N*C))
 
