@@ -111,10 +111,10 @@ A = [4.5, 5.5]
 
 # fertility per cohort-race-place 
 # I guess I need to restrict the value of α to get a steady state, 
-α = [   0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
+α = [   0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
 # the fertility of the second youngest race 1 in place 1, ..., the fertility of the oldest race 1 in place 1,
 # the fertility of the second youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
 # the fertility of the second youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
@@ -321,7 +321,7 @@ function wage(σ_0, σ_1, A, κ_0, κ_1, N, R, C, L_place, L_cohort, L)
         L_mat = reshape(L, C, (R*N))'
         
         # wage_mat is of (N*R) × (C-1)
-        wage_mat = (repeat(A, R, (C-1)) .* repeat(L_place, R, (C-1)) .^ (1/(σ_0-1)) .* repeat(κ_0_mat, R, 1) .^ (1/σ_0)
+        wage_mat = (repeat(A, R, (C-1)) .* repeat(L_place, R, (C-1)) .^ (1/(σ_0)) .* repeat(κ_0_mat, R, 1) .^ (1/σ_0)
                 .* repeat(L_cohort_mat, R, 1) .^ (-1/σ_0 + 1/(σ_1-1)) .* κ_1_mat .^ (1/σ_1) .* L_mat[:, 2:C] .^ (-1/σ_1))
 
 
@@ -453,18 +453,41 @@ L_SS_cs_A_1_0_1 = reshape(L_SS_cs_A_1[:, 1], C, (R*N))'
 
 L_SS_cs_A_1_1_9 = reshape(L_SS_cs_A_1[:, K], C, (R*N))'
 
-plot(A_1_range, L_SS_cs_A_1[1, :])
+real_wage_SS_cs_A_1 = w_SS_cs_A_1 ./ repeat(kron(r_SS_cs_A_1 .^ γ, ones(C-1)), R, 1)
 
-plot!(A_1_range, L_SS_cs_A_1[((C+1)), :])
 
-plot!(A_1_range, L_SS_cs_A_1[C, :])
+# population
+plot(A_1_range, L_SS_cs_A_1[1, :], label = "age 0/2 in location 1")
+plot!(A_1_range, L_SS_cs_A_1[((C+1)), :], label = "age 0/2 in location 2")
 
-plot!(A_1_range, L_SS_cs_A_1[2*C, :])
+plot!(A_1_range, L_SS_cs_A_1[C, :], label = "age 7 in location 1")
+plot!(A_1_range, L_SS_cs_A_1[2*C, :], label = "age 7 in location 2")
+xlabel!("productivity in location 1")
+ylabel!("population")
+savefig("../output/steady_state/prod1_pop.pdf")
 
-plot(A_1_range, L_SS_cs_A_1[2*C+1, :])
-plot!(A_1_range, L_SS_cs_A_1[2*C+C, :])
-plot!(A_1_range, L_SS_cs_A_1[3*C+1, :])
-plot!(A_1_range, L_SS_cs_A_1[4*C, :])
+# real wages
+plot(A_1_range, real_wage_SS_cs_A_1[1, :], label = "age 1 in location 1", legend = :topleft)
+plot!(A_1_range, real_wage_SS_cs_A_1[(C-1+1), :], label = "age 1 in location 2")
+
+plot!(A_1_range, real_wage_SS_cs_A_1[C-1, :], label = "age 7 in location 1")
+plot!(A_1_range, real_wage_SS_cs_A_1[2*(C-1), :], label = "age 7 in location 2")
+xlabel!("productivity in location 1")
+ylabel!("real wage")
+savefig("../output/steady_state/prod1_real_wage.pdf")
+
+# migration rate 
+
+plot(A_1_range, μ_SS_cs_A_1[2, :], label = "age 1 from 1 to 1", legend = :bottomright)
+plot!(A_1_range, μ_SS_cs_A_1[7, :], label = "age 6 from 1 to 1")
+
+
+plot!(A_1_range, μ_SS_cs_A_1[2*(C-1)+2, :], label = "age 1 from 2 to 1")
+plot!(A_1_range, μ_SS_cs_A_1[2*(C-1)+7, :], label = "age 6 from 2 to 1")
+xlabel!("productivity in location 1")
+ylabel!("migration rate")
+savefig("../output/steady_state/prod1_mig_rate.pdf")
+
 
 plot(A_1_range, r_SS_cs_A_1[1, :])
 plot!(A_1_range, r_SS_cs_A_1[2, :])
@@ -502,6 +525,10 @@ plot!(A_1_range, V_SS_cs_A_1[(2*C+5), :])
 plot!(A_1_range, V_SS_cs_A_1[(2*C+6), :])
 plot!(A_1_range, V_SS_cs_A_1[(2*C+7), :])
 plot!(A_1_range, V_SS_cs_A_1[(3*C), :])
+
+plot(A_1_range, V_SS_cs_A_1[1, :] ./ V_SS_cs_A_1[(C+1), :])
+plot(A_1_range, V_SS_cs_A_1[3, :] - V_SS_cs_A_1[(C+3), :])
+plot!(A_1_range, V_SS_cs_A_1[C, :] - V_SS_cs_A_1[(2*C), :])
 
 plot(A_1_range, u_SS_cs_A_1[1, :])
 plot!(A_1_range, u_SS_cs_A_1[2, :])
@@ -575,18 +602,85 @@ for i in 1:K
 
 end
 
-plot(B_1_1_range, L_SS_cs_B_1_1[1, :])
+real_wage_SS_cs_B_1_1 = w_SS_cs_B_1_1 ./ repeat(kron(r_SS_cs_B_1_1 .^ γ, ones(C-1)), R, 1)
 
-plot!(B_1_1_range, L_SS_cs_B_1_1[((C+1)), :])
+# population
+plot(B_1_1_range, L_SS_cs_B_1_1[1, :], label = "age 0/2 of race 1 in location 1", legend = :topright)
 
-plot!(B_1_1_range, L_SS_cs_B_1_1[C, :])
+plot!(B_1_1_range, L_SS_cs_B_1_1[((C+1)), :], label = "age 0/2 of race 1 in location 2")
 
-plot!(B_1_1_range, L_SS_cs_B_1_1[2*C, :])
+plot!(B_1_1_range, L_SS_cs_B_1_1[C, :], label = "age 7 of race 1 in location 1")
 
-plot(B_1_1_range, L_SS_cs_B_1_1[2*C+1, :])
-plot!(B_1_1_range, L_SS_cs_B_1_1[2*C+C, :])
-plot!(B_1_1_range, L_SS_cs_B_1_1[3*C+1, :])
-plot!(B_1_1_range, L_SS_cs_B_1_1[4*C, :])
+plot!(B_1_1_range, L_SS_cs_B_1_1[2*C, :], label = "age 7 of race 1 in location 2")
+
+xlabel!("amenity in location 1 for race 1")
+ylabel!("population")
+savefig("../output/steady_state/amnt11_pop1.pdf")
+
+plot(B_1_1_range, L_SS_cs_B_1_1[2*C+1, :], label = "age 0/2 of race 2 in location 1", legend = :topright)
+plot!(B_1_1_range, L_SS_cs_B_1_1[3*C+1, :], label = "age 0/2 of race 2 in location 2")
+plot!(B_1_1_range, L_SS_cs_B_1_1[2*C+C, :], label = "age 7 of race 2 in location 1")
+
+plot!(B_1_1_range, L_SS_cs_B_1_1[4*C, :], label = "age 7 of race 2 in location 2")
+xlabel!("amenity in location 1 for race 1")
+ylabel!("population")
+savefig("../output/steady_state/amnt11_pop2.pdf")
+
+# real wage 
+plot(B_1_1_range, real_wage_SS_cs_B_1_1[1, :], label = "age 1 of race 1 in location 1", legend = :topright)
+
+plot!(B_1_1_range, real_wage_SS_cs_B_1_1[(C-1), :], label = "age 7 of race 1 in location 1")
+
+plot!(B_1_1_range, real_wage_SS_cs_B_1_1[C, :], label = "age 1 of race 1 in location 2")
+
+plot!(B_1_1_range, real_wage_SS_cs_B_1_1[2*(C-1), :], label = "age 7 of race 1 in location 2")
+xlabel!("amenity in location 1 for race 1")
+ylabel!("real wage")
+savefig("../output/steady_state/amnt11_realwage1.pdf")
+
+
+
+plot(B_1_1_range, real_wage_SS_cs_B_1_1[2*(C-1)+1, :], label = "age 1 of race 2 in location 1", legend = :topright)
+
+plot!(B_1_1_range, real_wage_SS_cs_B_1_1[2*(C-1)+(C-1), :], label = "age 7 of race 2 in location 1")
+
+plot!(B_1_1_range, real_wage_SS_cs_B_1_1[2*(C-1)+C, :], label = "age 1 of race 2 in location 2")
+
+plot!(B_1_1_range, real_wage_SS_cs_B_1_1[2*(C-1)+2*(C-1), :], label = "age 7 of race 2 in location 2")
+xlabel!("amenity in location 1 for race 1")
+ylabel!("real wage")
+savefig("../output/steady_state/amnt11_realwage2.pdf")
+
+# migration rate 
+
+plot(B_1_1_range, μ_SS_cs_B_1_1[2, :], label = "age 1 of race 1 from 1 to 1", legend = :bottomright)
+plot!(B_1_1_range, μ_SS_cs_B_1_1[7, :], label = "age 6 of race 1 from 1 to 1")
+
+
+plot!(B_1_1_range, μ_SS_cs_B_1_1[2*(C-1)+2, :], label = "age 1 of race 1 from 2 to 1")
+plot!(B_1_1_range, μ_SS_cs_B_1_1[2*(C-1)+7, :], label = "age 6 of race 1 from 2 to 1")
+xlabel!("amenity in location 1 for race 1")
+ylabel!("migration rate")
+savefig("../output/steady_state/amnt11_mig_rate1.pdf")
+
+plot(B_1_1_range, μ_SS_cs_B_1_1[4*(C-1)+2, :], label = "age 1 of race 2 from 1 to 1", legend = :right)
+plot!(B_1_1_range, μ_SS_cs_B_1_1[4*(C-1)+7, :], label = "age 6 of race 2 from 1 to 1")
+
+
+plot!(B_1_1_range, μ_SS_cs_B_1_1[4*(C-1)+2*(C-1)+2, :], label = "age 1 of race 2 from 2 to 1")
+plot!(B_1_1_range, μ_SS_cs_B_1_1[4*(C-1)+2*(C-1)+7, :], label = "age 6 of race 2 from 2 to 1")
+xlabel!("amenity in location 1 for race 1")
+ylabel!("migration rate")
+savefig("../output/steady_state/amnt11_mig_rate2.pdf")
+
+plot(B_1_1_range, μ_SS_cs_B_1_1[4*(C-1)+2, :], label = "age 1 of race 2 from 1 to 1", legend = :right)
+plot!(B_1_1_range, μ_SS_cs_B_1_1[4*(C-1)+7, :], label = "age 6 of race 2 from 1 to 1")
+xlabel!("amenity in location 1 for race 1")
+ylabel!("migration rate")
+savefig("../output/steady_state/amnt11_mig_rate2_from_1.pdf")
+
+
+
 
 plot(B_1_1_range, r_SS_cs_B_1_1[1, :])
 plot!(B_1_1_range, r_SS_cs_B_1_1[2, :])
@@ -686,31 +780,34 @@ for i in 1:K
 
 end
 
-plot(κ_0_1_range, L_SS_cs_κ_0_1[1, :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[2, :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[3, :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[4, :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[5, :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[6, :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[7, :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[C, :])
+real_wage_SS_cs_κ_0_1 = w_SS_cs_κ_0_1 ./ repeat(kron(r_SS_cs_κ_0_1 .^ γ, ones(C-1)), R, 1)
 
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+1), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+2), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+3), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+4), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+5), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+6), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(C+7), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[2*C, :])
+plot(κ_0_1_range, L_SS_cs_κ_0_1[2, :], label = "age 1 in location 1", legend = :bottomright)
+plot!(κ_0_1_range, L_SS_cs_κ_0_1[3, :], label = "age 2 in location 1")
+plot!(κ_0_1_range, L_SS_cs_κ_0_1[4, :], label = "age 3 in location 1")
+plot!(κ_0_1_range, L_SS_cs_κ_0_1[5, :], label = "age 4 in location 1")
+plot!(κ_0_1_range, L_SS_cs_κ_0_1[C, :], label = "age 7 in location 1")
+xlabel!("productivity of age 3 in location 1")
+ylabel!("population")
+savefig("../output/steady_state/prod_age3_pop1.pdf")
 
-plot(κ_0_1_range, L_SS_cs_κ_0_1[(2*C+1), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(2*C+2), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(2*C+3), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(2*C+4), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(2*C+5), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(2*C+6), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[(2*C+7), :])
-plot!(κ_0_1_range, L_SS_cs_κ_0_1[3*C, :])
+plot(κ_0_1_range, real_wage_SS_cs_κ_0_1[1, :], label = "age 1 in location 1", legend = :bottomright)
+plot!(κ_0_1_range, real_wage_SS_cs_κ_0_1[2, :], label = "age 2 in location 1", legend = :bottomright)
+plot!(κ_0_1_range, real_wage_SS_cs_κ_0_1[3, :], label = "age 3 in location 1", legend = :bottomright)
+plot!(κ_0_1_range, real_wage_SS_cs_κ_0_1[7, :], label = "age 7 in location 1", legend = :bottomright)
 
+# migration rate 
+
+plot(κ_0_1_range, μ_SS_cs_κ_0_1[2, :], label = "age 1 of race 1 from 1 to 1", legend = :right)
+plot!(κ_0_1_range, μ_SS_cs_κ_0_1[3, :], label = "age 2 of race 1 from 1 to 1")
+plot!(κ_0_1_range, μ_SS_cs_κ_0_1[4, :], label = "age 3 of race 1 from 1 to 1")
+# plot!(κ_0_1_range, μ_SS_cs_κ_0_1[7, :], label = "age 6 of race 1 from 1 to 1")
+
+
+plot!(κ_0_1_range, μ_SS_cs_κ_0_1[2*(C-1)+2, :], label = "age 1 of race 1 from 2 to 1")
+plot!(κ_0_1_range, μ_SS_cs_κ_0_1[2*(C-1)+3, :], label = "age 2 of race 1 from 2 to 1")
+plot!(κ_0_1_range, μ_SS_cs_κ_0_1[2*(C-1)+4, :], label = "age 3 of race 1 from 2 to 1")
+xlabel!("productivity of age 3 in location 1")
+ylabel!("migration rate")
+savefig("../output/steady_state/prod_age3_mig_rate1.pdf")
 
