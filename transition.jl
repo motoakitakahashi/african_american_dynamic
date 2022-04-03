@@ -387,6 +387,9 @@ function steady_state(tol, maxit, N, C, R, ν, σ_0, σ_1, γ, B, s, τ, r_bar, 
         L = zeros(R*N*C)
         L[:, :] = L_in[:, :] 
         V = []
+        w = []
+        r = []
+        real_wage = []
 
         dif = 1.0
         count = 0
@@ -410,10 +413,13 @@ function steady_state(tol, maxit, N, C, R, ν, σ_0, σ_1, γ, B, s, τ, r_bar, 
         
         end
 
+        real_wage = w ./ (repeat(kron(r, ones((C-1))), R) .^ γ)
+        real_wage = [real_wage; zeros(R*N)]
+
         if dif < tol
-                output = [L V]
+                output = [L V real_wage]
         else 
-                output = fill("not converged", length([L V]))
+                output = fill("not converged", length([L V real_wage]))
         end
 
         return output
@@ -423,7 +429,7 @@ LV_100 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[
 
 L_mat_100 = reshape(LV_100[:, 1], C, R*N)'
 V_mat_100 = reshape(LV_100[:, 2], C, R*N)'
-
+real_wage_mat_100 = reshape(LV_100[1:N*R*(C-1), 3], C-1, R*N)'
 
 maximum(abs.(L_mat_100[1, :] - L_mat_100[3, :]))
 
@@ -456,11 +462,99 @@ function transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_
         V_new = V_in_2
         dif = 1.0
         count = 0
+        w = zeros(R*N*(C-1), T-1)
+        r = zeros(N, T-1)
 
 
         while dif > tol && count < maxit
 
                 for i in 1:T-2
+                        if i == 1
+
+                                                        # given a value matrix, compute populations forward
+                        L_t = L[:, i]
+                        s_t = s[:, i]
+                        ν_t = ν[1, i]
+                        τ_t = τ[:, i]
+                        V_t_plus_1 = V[:, i+1]
+                        α_t_plus_1 = α[:, i+1]
+                        M_t_plus_1 = M[:, i+1]
+                        μ_t = migration_rate(s_t, V_t_plus_1, ν_t, τ_t, R, N, C)
+                        L_t_plus_1 = population(μ_t, s_t, L_t, α_t_plus_1, C, R, N) + M_t_plus_1
+                
+                        # given a population matrix, compute wages and rents. Then compute period utilities.
+                        # Then update expected values.
+                
+                        σ_1_t_plus_1 = σ_1[1, i+1]
+                        κ_1_t_plus_1 = κ_1[:, i+1]
+                        σ_1_t = σ_1[1, i]
+                        κ_1_t = κ_1[:, i]
+                
+                        L_cohort_t_plus_1 = agg_labor_cohort(L_t_plus_1, σ_1_t_plus_1, κ_1_t_plus_1, N, R, C)
+                        L_cohort_t = agg_labor_cohort(L_t, σ_1_t, κ_1_t, N, R, C)
+                
+                        σ_0_t_plus_1 = σ_0[1, i+1]
+                        κ_0_t_plus_1 = κ_0[:, i+1]
+                        σ_0_t = σ_0[1, i]
+                        κ_0_t = κ_0[:, i]
+                
+                
+                        L_place_t_plus_1 = agg_labor_place(L_cohort_t_plus_1, σ_0_t_plus_1, κ_0_t_plus_1, N, R, C)
+                        L_place_t = agg_labor_place(L_cohort_t, σ_0_t, κ_0_t, N, R, C)
+                
+                        A_t_plus_1 = A[:, i+1]
+                        A_t = A[:, i]
+                
+                        w_t_plus_1 = wage(σ_0_t_plus_1, σ_1_t_plus_1, A_t_plus_1, κ_0_t_plus_1, κ_1_t_plus_1, N, R, C, L_place_t_plus_1, L_cohort_t_plus_1, L_t_plus_1)
+                        w_t = wage(σ_0_t, σ_1_t, A_t, κ_0_t, κ_1_t, N, R, C, L_place_t, L_cohort_t, L_t)
+                
+                        r_bar_t_plus_1 = r_bar[:, i+1]
+                        r_bar_t = r_bar[:, i]
+                        γ_t_plus_1 = γ[1, i+1]
+                        γ_t = γ[1, i]
+                        η_t_plus_1 = η[1, i+1]
+                        η_t = η[1, i]
+                
+                
+                
+                        r_t_plus_1 = rent(w_t_plus_1, L_t_plus_1, r_bar_t_plus_1, η_t_plus_1, γ_t_plus_1, N, R, C)
+                        r_t = rent(w_t, L_t, r_bar_t, η_t, γ_t, N, R, C)
+                
+                        B_t_plus_1 = B[:, i+1]
+                        B_t = B[:, i]
+                
+                        u_t_plus_1 = utility(w_t_plus_1, r_t_plus_1, B_t_plus_1, R, N, C, γ_t_plus_1)
+                        u_t = utility(w_t, r_t, B_t, R, N, C, γ_t)
+                
+                        s_t_plus_1 = s[:, i+1]
+                        τ_t_plus_1 = τ[:, i+1]
+                        V_t_plus_2 = V[:, i+2]
+                        ν_t_plus_1 = ν[1, i+1]
+
+                        s_t = s[:, i]
+                        τ_t = τ[:, i]
+                        ν_t = ν[1, i]
+
+                        V_t_plus_1 = expected_value_transition(u_t_plus_1, s_t_plus_1, ν_t_plus_1, τ_t_plus_1, R, N, C, V_t_plus_2)
+                        V_t = expected_value_transition(u_t, s_t, ν_t, τ_t, R, N, C, V_t_plus_1)
+                
+                        V_new[:, i+1] = V_t_plus_1
+                        V_new[:, i] = V_t
+                        
+                        L[:, i+1] = L_t_plus_1  
+                        w[:, i] = w_t
+                        w[:, i+1] = w_t_plus_1
+                        r[:, i] = r_t 
+                        r[:, i+1] = r_t_plus_1 
+
+                        
+
+
+                
+    
+                        
+                        else
+
                         # given a value matrix, compute populations forward
                         L_t = L[:, i]
                         s_t = s[:, i]
@@ -506,14 +600,16 @@ function transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_
                         τ_t_plus_1 = τ[:, i+1]
                         V_t_plus_2 = V[:, i+2]
                         ν_t_plus_1 = ν[1, i+1]
-                
-                
-                
+
                         V_t_plus_1 = expected_value_transition(u_t_plus_1, s_t_plus_1, ν_t_plus_1, τ_t_plus_1, R, N, C, V_t_plus_2)
                 
                         V_new[:, i+1] = V_t_plus_1
-                
-                        L[:, i+1] = L_t_plus_1                
+                        
+                        L[:, i+1] = L_t_plus_1  
+                        w[:, i+1] = w_t_plus_1
+                        r[:, i+1] = r_t_plus_1
+                        
+                        end
                 end
 
                 dif = maximum(abs.((V_new - V)./V))
@@ -525,13 +621,25 @@ function transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_
 
         end
 
-        output = [fill(count, N*R*C) fill(dif, N*R*C) V L]
+        # γ[:, 1:(T-1)] is a 1×(T-1) matrix, γ[1, 1:(T-1)] is a (T-1) vector.
+        real_wage = w ./ (repeat(kron(r, ones(C-1, 1)), R, 1) .^ (repeat(γ[:, 1:(T-1)], R*N*(C-1), 1)))
+
+
+
+        # a bad feature of Julia is that it doesn't have lists in the language of R.
+        # So, the output for this function should be matrix.
+        # I add zeros as a "filler," because real wages and expected values/populations have different dimensions.
+
+        real_wage = [real_wage; zeros(R*N, T-1)]
+
+        output = [fill(count, N*R*C) fill(dif, N*R*C) V L real_wage]
         return output
 end
 
 path1 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
-V1 = path1[:, 3:3+(T-1)]
-L1 = path1[:, 3+(T-1)+1:3+2*(T-1)]
+V1 = path1[:, 3:2+T]
+L1 = path1[:, (3+T):(2+2*T)]
+real_wage1 = path1[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
 
 A_2 = zeros(N, T)
 A_2[:, :] = A[:, :]
@@ -550,13 +658,30 @@ plot!(0:10, V2[3, :1:11], label = "location 1 (counterfactual)")
 plot!(0:10, V2[C+3, :1:11], label = "location 2 (counterfactual)")
 xlabel!("period")
 ylabel!("expected value")
-savefig("../output/transition/prod_ex_val.pdf")
+savefig("../output/transition/prod_ex_val_age2.pdf")
+
+plot(0:10, V1[1, :1:11], label = "location 1 (baseline)", legend = :bottomright)
+plot!(0:10, V1[C+1, :1:11], label = "location 2 (baseline)")
+plot!(0:10, V2[1, :1:11], label = "location 1 (counterfactual)")
+plot!(0:10, V2[C+1, :1:11], label = "location 2 (counterfactual)")
+xlabel!("period")
+ylabel!("expected value")
+savefig("../output/transition/prod_ex_val_age0.pdf")
 
 
+plot(0:10, L1[3, :1:11], label = "location 1 (baseline)")
+plot!(0:10, L1[C+3, :1:11], label = "location 2 (baseline)")
+plot!(0:10, L2[3, :1:11], label = "location 1 (counterfactual)")
+plot!(0:10, L2[C+3, :1:11], label = "location 2 (counterfactual)")
+xlabel!("period")
+ylabel!("population")
+savefig("../output/transition/prod_pop_age2.pdf")
 
-plot(0:10, L1[3, :1:11])
-plot!(0:10, L1[C+3, :1:11])
-plot!(0:10, L2[3, :1:11])
-plot!(0:10, L2[C+3, :1:11])
-
+plot(0:10, L1[C+3, :1:11], label = "age 2 in location 2 (baseline)")
+plot!(0:10, L1[2*C, :1:11], label = "age 7 in location 2 (baseline)")
+plot!(0:10, L2[3*C+3, :1:11], label = "age 2 in location 2 (counterfactual)")
+plot!(0:10, L2[4*C, :1:11], label = "age 7 in location 2 (counterfactual)")
+xlabel!("period")
+ylabel!("population")
+savefig("../output/transition/prod_pop_age2_7.pdf")
 
