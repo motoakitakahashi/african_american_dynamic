@@ -39,8 +39,10 @@ R = 2
 # elasticity of substitution between ages 
 σ_0 = 5.0 # this follows Ottaviano and Peri, Manacorda et al, and Yuta's JMP
 
+
 # elasticity of substitution between races (within ages)
-σ_1 = 11.0 # this follows Boustan
+# σ_1 = 11.0 # this follows Boustan
+σ_1 = 11.0
 
 # Cobb-Douglas share of housing
 γ = 0.25
@@ -192,6 +194,14 @@ end
 V = expected_value(u, s, ν, τ, R, N, C)
 
 V_mat = reshape(V, C, N*R)'
+
+s_2 = [1.0, 1.0, 1.0, 0.9, 0.9, 0.9, 0.9,
+        1.0, 1.0, 0.9, 0.9, 0.9, 0.9, 0.9]
+
+V_2 = expected_value(u, s_2 , ν, τ, R, N, C)
+V_2_mat = reshape(V_2, C, N*R)'
+
+V_mat - V_2_mat
 
 
 function migration_rate(s, V, ν, τ, R, N, C)
@@ -357,7 +367,7 @@ end
 r = rent(w, L, r_bar, η, γ, N, R, C)
 
 
-tol = 10 ^ (-7)
+tol = 10 ^ (-8)
 maxit = 1000
 
 # the dumpening parameter for iteration
@@ -812,3 +822,80 @@ xlabel!("productivity of age 3 in location 1")
 ylabel!("migration rate")
 savefig("../output/steady_state/prod_age3_mig_rate1.pdf")
 
+# comparative statics with respect to survival probabilities
+
+A = [6.0, 4.0]
+
+# σ_0 = 2000.0
+# σ_1 = 1990.0
+
+B = [   1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+# κ_0 = [1/7, 1/7, 1/7, 1/7, 1/7, 1/7, 1/7,
+        # 1/7, 1/7, 1/7, 1/7, 1/7, 1/7, 1/7]
+κ_0 = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+s_2_range = 0.5:0.01:1.0
+
+K = size(s_2_range)[1]
+
+L_SS_cs_s_2 = zeros((R*N*C), K)
+w_SS_cs_s_2 = zeros((R*N*(C-1)), K)
+r_SS_cs_s_2 = zeros(N, K)
+V_SS_cs_s_2 = zeros((R*N*C), K)
+μ_SS_cs_s_2 = zeros((R*N*N*(C-1)), K)
+
+
+dif_SS_cs_s_2 = zeros((R*N*C), K)
+
+for i in 1:K
+        s_2_cs = [1.0, 1.0, 1.0, s_2_range[i, 1], 1.0, 1.0, s_2_range[i, 1],
+             1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+        temp = steady_state(tol, maxit, N, C, R, ν, σ_0, σ_1, γ, B, s_2_cs, τ, r_bar, η, A, κ_0, κ_1, α, L_in, λ)
+
+             L = temp[:, 1]
+             L_cohort = agg_labor_cohort(L, σ_1, κ_1, N, R, C)
+             L_place = agg_labor_place(L_cohort, σ_0, κ_0, N, R, C)
+     
+             w = wage(σ_0, σ_1, A, κ_0, κ_1, N, R, C, L_place, L_cohort, L)
+             r = rent(w, L, r_bar, η, γ, N, R, C)
+             u = utility(w, r, B, R, N, C, γ)
+             V = expected_value(u, s, ν, τ, R, N, C)
+             μ = migration_rate(s, V, ν, τ, R, N, C)
+     
+             L_SS_cs_s_2[:, i] = L
+             dif_SS_cs_s_2[:, i] = temp[:, 2]
+             w_SS_cs_s_2[:, i] = w
+             r_SS_cs_s_2[:, i] = r
+             V_SS_cs_s_2[:, i] = V 
+             μ_SS_cs_s_2[:, i] = μ 
+        
+end
+
+real_wage_SS_cs_s_2 = w_SS_cs_s_2 ./ repeat(kron(r_SS_cs_s_2 .^ γ, ones(C-1)), R, 1)
+
+# population 
+
+plot(s_2_range, L_SS_cs_s_2[4, :], label = "age 3 of race 1 in location 1", legend = :right)
+plot!(s_2_range, L_SS_cs_s_2[2*C+4, :], label = "age 3 of race 2 in location 1")
+plot!(s_2_range, L_SS_cs_s_2[C+4, :], label = "age 3 of race 1 in location 2")
+plot!(s_2_range, L_SS_cs_s_2[2*C+C+4, :], label = "age 3 of race 2 in location 2")
+xlabel!("survival probability of race 2")
+ylabel!("population")
+
+# expected value
+plot(s_2_range, V_SS_cs_s_2[1, :])
+plot!(s_2_range, V_SS_cs_s_2[2*C+1, :])
+plot(s_2_range, V_SS_cs_s_2[C+1, :])
+plot!(s_2_range, V_SS_cs_s_2[2*C+C+1, :])
+
+# real wage 
+plot(s_2_range, real_wage_SS_cs_s_2[6, :])
+plot!(s_2_range, real_wage_SS_cs_s_2[2*(C-1)+6, :])
+plot!(s_2_range, real_wage_SS_cs_s_2[(C-1)+6, :])
+plot!(s_2_range, real_wage_SS_cs_s_2[2*(C-1)+(C-1)+6, :])

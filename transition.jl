@@ -425,14 +425,22 @@ function steady_state(tol, maxit, N, C, R, ν, σ_0, σ_1, γ, B, s, τ, r_bar, 
         return output
 end
 
+s_period_2 = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.9,
+              1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+LV_100_2 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s_period_2, τ[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
+
+
 LV_100 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s[:, T], τ[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
+
+V_mat_100_2 = reshape(LV_100_2[:, 2], C, R*N)'
+L_mat_100_2 = reshape(LV_100_2[:, 1], C, R*N)'
 
 L_mat_100 = reshape(LV_100[:, 1], C, R*N)'
 V_mat_100 = reshape(LV_100[:, 2], C, R*N)'
 real_wage_mat_100 = reshape(LV_100[1:N*R*(C-1), 3], C-1, R*N)'
 
 maximum(abs.(L_mat_100[1, :] - L_mat_100[3, :]))
-
 
 # I compute populations forward, given expected values.
 # Then given populations, I update expected values.
@@ -684,4 +692,3 @@ plot!(0:10, L2[4*C, :1:11], label = "age 7 in location 2 (counterfactual)")
 xlabel!("period")
 ylabel!("population")
 savefig("../output/transition/prod_pop_age2_7.pdf")
-
