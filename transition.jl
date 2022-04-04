@@ -106,7 +106,7 @@ r_bar = repeat(r_bar_period, 1, T)
 η = repeat(η_period, 1, T)
 
 # productivity
-A_period = [4.5, 5.5]
+A_period = [6.0, 4.0]
 # the productivity in place 1, the productivity in place 2
 
 A = repeat(A_period, 1, T)
@@ -425,11 +425,44 @@ function steady_state(tol, maxit, N, C, R, ν, σ_0, σ_1, γ, B, s, τ, r_bar, 
         return output
 end
 
-s_period_2 = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.9,
-              1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+# compare steady states for various survival probabilities 
 
-LV_100_2 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s_period_2, τ[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
+s_per_range = 0.5:0.01:1.0
 
+K = length(s_per_range)
+
+V_cs_s = zeros(N*R*C, K)
+L_cs_s = zeros(N*R*C, K)
+real_wage_cs_s = zeros(N*R*(C-1), K)
+
+for i in 1:K
+        s_per = [1.0, 1.0, 1.0, s_per_range[i], s_per_range[i], s_per_range[i], s_per_range[i],
+                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+        temp = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s_per, τ[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
+
+        L_cs_s[:, i] = temp[:, 1]
+        V_cs_s[:, i] = temp[:, 2]
+        real_wage_cs_s[:, i] = temp[1:(N*R*(C-1)), 3]
+end
+
+# expected value
+plot(s_per_range, V_cs_s[1, :], label = "age 0 of race 1 in location 1", legend = :bottomright)
+plot!(s_per_range, V_cs_s[C+1, :], label = "age 0 of race 1 in location 2")
+plot!(s_per_range, V_cs_s[2*C+1, :], label = "age 0 of race 2 in location 1")
+plot!(s_per_range, V_cs_s[3*C+1, :], label = "age 0 of race 2 in location 2")
+xlabel!("survival probability of race 1")
+ylabel!("expected value")
+savefig("../output/steady_state/suv_prob_exp_value.pdf")
+
+# population 
+plot(s_per_range, L_cs_s[1, :], label = "age 0 of race 1 in location 1", legend = :bottomright)
+plot!(s_per_range, L_cs_s[2*C+1, :], label = "age 0 of race 2 in location 1")
+xlabel!("survival probability of race 1")
+ylabel!("population")
+savefig("../output/steady_state/suv_prob_pop_plc1.pdf")
+
+# prepare for comparative transition paths
 
 LV_100 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s[:, T], τ[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
 
@@ -651,7 +684,7 @@ real_wage1 = path1[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
 
 A_2 = zeros(N, T)
 A_2[:, :] = A[:, :]
-A_2[:, 4] = [2.0, 8.0]
+A_2[:, 4] = [8.0, 2.0]
 
 path2 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A_2, r_bar, η, γ, B, tol, maxit)
 
@@ -685,10 +718,10 @@ xlabel!("period")
 ylabel!("population")
 savefig("../output/transition/prod_pop_age2.pdf")
 
-plot(0:10, L1[C+3, :1:11], label = "age 2 in location 2 (baseline)")
-plot!(0:10, L1[2*C, :1:11], label = "age 7 in location 2 (baseline)")
-plot!(0:10, L2[3*C+3, :1:11], label = "age 2 in location 2 (counterfactual)")
-plot!(0:10, L2[4*C, :1:11], label = "age 7 in location 2 (counterfactual)")
+plot(0:10, L1[3, :1:11], label = "age 2 in location 1 (baseline)")
+plot!(0:10, L1[C, :1:11], label = "age 7 in location 1 (baseline)")
+plot!(0:10, L2[3, :1:11], label = "age 2 in location 1 (counterfactual)")
+plot!(0:10, L2[C, :1:11], label = "age 7 in location 1 (counterfactual)")
 xlabel!("period")
 ylabel!("population")
 savefig("../output/transition/prod_pop_age2_7.pdf")
