@@ -2,7 +2,7 @@
 
 # Julia 1.7.2
 
-# March 2022
+# March, April, August 2022
 
 # I compute a transition path from a given initial condition to a steady state 
 
@@ -105,8 +105,10 @@ r_bar = repeat(r_bar_period, 1, T)
 
 η = repeat(η_period, 1, T)
 
+
 # productivity
 A_period = [6.0, 4.0]
+
 # the productivity in place 1, the productivity in place 2
 
 A = repeat(A_period, 1, T)
@@ -139,7 +141,7 @@ A = repeat(A_period, 1, T)
                 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
 # the fertility of the second youngest race 1 in place 1, ..., the fertility of the oldest race 1 in place 1,
-# the fertility of the second youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
+# the fertility of the second youngest race 1 in place 2, ..., the fertility of the oldest race 1 in place 2, ???
 # the fertility of the second youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
 # the fertility of the second youngest race 2 in place 2, ..., the fertility of the oldest race 2 in place 2
 
@@ -434,6 +436,7 @@ K = length(s_per_range)
 V_cs_s = zeros(N*R*C, K)
 L_cs_s = zeros(N*R*C, K)
 real_wage_cs_s = zeros(N*R*(C-1), K)
+μ_cs_s = zeros(R*N*N*(C-1), K)
 
 for i in 1:K
         s_per = [1.0, 1.0, 1.0, s_per_range[i], s_per_range[i], s_per_range[i], s_per_range[i],
@@ -443,31 +446,47 @@ for i in 1:K
 
         L_cs_s[:, i] = temp[:, 1]
         V_cs_s[:, i] = temp[:, 2]
+        μ_cs_s[:, i] = migration_rate(s_per, temp[:, 2], ν[1, T], τ[:, T], R, N, C)
+        
         real_wage_cs_s[:, i] = temp[1:(N*R*(C-1)), 3]
 end
 
 # expected value
-plot(s_per_range, V_cs_s[1, :], label = "age 0 of race 1 in location 1", legend = :bottomright)
-plot!(s_per_range, V_cs_s[C+1, :], label = "age 0 of race 1 in location 2")
-plot!(s_per_range, V_cs_s[2*C+1, :], label = "age 0 of race 2 in location 1")
-plot!(s_per_range, V_cs_s[3*C+1, :], label = "age 0 of race 2 in location 2")
-xlabel!("survival probability of race 1")
-ylabel!("expected value")
-savefig("../output/steady_state/suv_prob_exp_value.pdf")
+# plot(s_per_range, V_cs_s[1, :], label = "age 0 of race 1 in location 1", legend = :bottomright)
+# plot!(s_per_range, V_cs_s[C+1, :], label = "age 0 of race 1 in location 2")
+# plot!(s_per_range, V_cs_s[2*C+1, :], label = "age 0 of race 2 in location 1")
+# plot!(s_per_range, V_cs_s[3*C+1, :], label = "age 0 of race 2 in location 2")
+# xlabel!("survival probability of race 1")
+# ylabel!("expected value")
+# savefig("../output/steady_state/suv_prob_exp_value.pdf")
 
 # population 
-plot(s_per_range, L_cs_s[1, :], label = "age 0 of race 1 in location 1", legend = :bottomright)
-plot!(s_per_range, L_cs_s[2*C+1, :], label = "age 0 of race 2 in location 1")
-xlabel!("survival probability of race 1")
-ylabel!("population")
-savefig("../output/steady_state/suv_prob_pop_plc1.pdf")
+# plot(s_per_range, L_cs_s[1, :], label = "age 0 of race 1 in location 1", legend = :bottomright)
+# plot!(s_per_range, L_cs_s[2*C+1, :], label = "age 0 of race 2 in location 1")
+# xlabel!("survival probability of race 1")
+# ylabel!("population")
+# savefig("../output/steady_state/suv_prob_pop_plc1.pdf")
+
+# migration rate 
+# plot(s_per_range, μ_cs_s[3, :], label = "age 2 of race 1 from 1 to 1", legend = :bottomright)
+# plot!(s_per_range, μ_cs_s[4*(C-1)+3, :], label = "age 2 of race 2 from 1 to 1", legend = :bottomright)
+# xlabel!("survival probability of race 1")
+# ylabel!("migration rate")
+# savefig("../output/steady_state/suv_prob_mig_1to1.pdf")
+
+
+# plot(s_per_range, μ_cs_s[2*(C-1)+3, :], label = "age 3 of race 1 from 2 to 1", legend = :bottomright)
+# plot!(s_per_range, μ_cs_s[4*(C-1)+2*(C-1)+3, :], label = "age 3 of race 2 from 2 to 1")
+# xlabel!("survival probability of race 1")
+# ylabel!("migration rate")
+# savefig("../output/steady_state/suv_prob_mig_2to1.pdf")
 
 # prepare for comparative transition paths
 
 LV_100 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s[:, T], τ[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
 
-V_mat_100_2 = reshape(LV_100_2[:, 2], C, R*N)'
-L_mat_100_2 = reshape(LV_100_2[:, 1], C, R*N)'
+V_mat_100_2 = reshape(LV_100[:, 2], C, R*N)'
+L_mat_100_2 = reshape(LV_100[:, 1], C, R*N)'
 
 L_mat_100 = reshape(LV_100[:, 1], C, R*N)'
 V_mat_100 = reshape(LV_100[:, 2], C, R*N)'
@@ -690,38 +709,259 @@ path2 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0
 
 V2 = path2[:, 3:3+(T-1)]
 L2 = path2[:, 3+(T-1)+1:3+2*(T-1)]
+real_wage2 = path2[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
+real_wage2
+
+# compare expected values
+# plot(0:10, V1[3, :1:11], label = "location 1 (baseline)")
+# plot!(0:10, V1[C+3, :1:11], label = "location 2 (baseline)")
+# plot!(0:10, V2[3, :1:11], label = "location 1 (counterfactual)")
+# plot!(0:10, V2[C+3, :1:11], label = "location 2 (counterfactual)")
+# xlabel!("period")
+# ylabel!("expected value")
+# savefig("../output/transition/prod_ex_val_age2.pdf")
+
+# plot(0:10, V1[1, :1:11], label = "location 1 (baseline)")
+# plot!(0:10, V1[C+1, :1:11], label = "location 2 (baseline)")
+# plot!(0:10, V2[1, :1:11], label = "location 1 (counterfactual)")
+# plot!(0:10, V2[C+1, :1:11], label = "location 2 (counterfactual)")
+# xlabel!("period")
+# ylabel!("expected value")
+# savefig("../output/transition/prod_ex_val_age0.pdf")
+
+value_cohort_path1_011 = zeros(C)
+for i in 1:C
+        value_cohort_path1_011[i] = V1[i, i]
+end
+
+value_cohort_path2_011 = zeros(C)
+for i in 1:C
+        value_cohort_path2_011[i] = V2[i, i]
+end
+
+value_cohort_path1_012 = zeros(C)
+for i in 1:C
+        value_cohort_path1_012[i] = V1[C+i, i]
+end
+
+value_cohort_path2_012 = zeros(C)
+for i in 1:C
+        value_cohort_path2_012[i] = V2[C+i, i]
+end
+
+# plot(0:(C-1), value_cohort_path1_011, label = "location 1 (baseline)")
+# plot!(0:(C-1), value_cohort_path2_011, label = "location 1 (counterfactual)")
+# plot!(0:(C-1), value_cohort_path1_012, label = "location 2 (baseline)")
+# plot!(0:(C-1), value_cohort_path2_012, label = "location 2 (counterfactual)")
+# xlabel!("age")
+# ylabel!("expected value")
+# savefig("../output/transition/expected_value_cohort_0.pdf")
+
+# population
+# plot(0:10, L1[3, :1:11], label = "location 1 (baseline)")
+# plot!(0:10, L1[C+3, :1:11], label = "location 2 (baseline)")
+# plot!(0:10, L2[3, :1:11], label = "location 1 (counterfactual)")
+# plot!(0:10, L2[C+3, :1:11], label = "location 2 (counterfactual)")
+# xlabel!("period")
+# ylabel!("population")
+# savefig("../output/transition/prod_pop_age2.pdf")
+
+# plot(0:10, L1[3, :1:11], label = "age 2 in location 1 (baseline)")
+# plot!(0:10, L1[C, :1:11], label = "age 7 in location 1 (baseline)")
+# plot!(0:10, L2[3, :1:11], label = "age 2 in location 1 (counterfactual)")
+# plot!(0:10, L2[C, :1:11], label = "age 7 in location 1 (counterfactual)")
+# xlabel!("period")
+# ylabel!("population")
+# savefig("../output/transition/prod_pop_age2_7.pdf")
+
+# real wage
+# plot(0:10, real_wage1[2, :1:11], label = "location 1 (baseline)")
+# plot!(0:10, real_wage1[(C-1)+2, :1:11], label = "location 2 (baseline)")
+# plot!(0:10, real_wage2[2, :1:11], label = "location 1 (counterfactual)")
+# plot!(0:10, real_wage2[(C-1)+2, :1:11], label = "location 2 (counterfactual)")
+# xlabel!("period")
+# ylabel!("real wage")
+# savefig("../output/transition/prod_real_wage_age2.pdf")
+
+# plot(0:10, real_wage1[1, :1:11], label = "location 1 (baseline)")
+# plot!(0:10, real_wage1[(C-1)+1, :1:11], label = "location 2 (baseline)")
+# plot!(0:10, real_wage2[1, :1:11], label = "location 1 (counterfactual)")
+# plot!(0:10, real_wage2[(C-1)+1, :1:11], label = "location 2 (counterfactual)")
+# xlabel!("period")
+# ylabel!("real wage")
+
+# plot(0:10, real_wage1[7, :1:11], label = "location 1 (baseline)")
+# plot!(0:10, real_wage1[(C-1)+7, :1:11], label = "location 2 (baseline)")
+# plot!(0:10, real_wage2[7, :1:11], label = "location 1 (counterfactual)")
+# plot!(0:10, real_wage2[(C-1)+7, :1:11], label = "location 2 (counterfactual)")
+# xlabel!("period")
+# ylabel!("real wage")
+
+# plot(0:10, real_wage1[2, :1:11], label = "location 1 (baseline)")
+# plot!(0:10, real_wage2[2, :1:11], label = "location 1 (counterfactual)")
+# plot!(0:10, real_wage1[7, :1:11], label = "location 1 (baseline)")
+# plot!(0:10, real_wage2[7, :1:11], label = "location 1 (counterfactual)")
 
 
-# compare expected values for 20s
-plot(0:10, V1[3, :1:11], label = "location 1 (baseline)")
-plot!(0:10, V1[C+3, :1:11], label = "location 2 (baseline)")
-plot!(0:10, V2[3, :1:11], label = "location 1 (counterfactual)")
-plot!(0:10, V2[C+3, :1:11], label = "location 2 (counterfactual)")
-xlabel!("period")
-ylabel!("expected value")
-savefig("../output/transition/prod_ex_val_age2.pdf")
+# plot(1:7, [real_wage1[1, 1], real_wage1[2, 2], real_wage1[3, 3], real_wage1[4, 4], real_wage1[5, 5], real_wage1[6, 6], real_wage1[7, 7]] )
+# plot!(1:7, [real_wage2[1, 1], real_wage2[2, 2], real_wage2[3, 3], real_wage2[4, 4], real_wage2[5, 5], real_wage2[6, 6], real_wage2[7, 7]] )
 
-plot(0:10, V1[1, :1:11], label = "location 1 (baseline)", legend = :bottomright)
-plot!(0:10, V1[C+1, :1:11], label = "location 2 (baseline)")
-plot!(0:10, V2[1, :1:11], label = "location 1 (counterfactual)")
-plot!(0:10, V2[C+1, :1:11], label = "location 2 (counterfactual)")
-xlabel!("period")
-ylabel!("expected value")
-savefig("../output/transition/prod_ex_val_age0.pdf")
+# 011 means the cohort-race-place tuple
+real_wage_cohort_path1_011 = zeros(C-1)
+for i in 1:C-1
+        real_wage_cohort_path1_011[i] = real_wage1[i, i+1]
+end
+
+real_wage_cohort_path2_011 = zeros(C-1)
+for i in 1:C-1
+        real_wage_cohort_path2_011[i] = real_wage2[i, i+1]
+end
+
+real_wage_cohort_path1_012 = zeros(C-1)
+for i in 1:C-1
+        real_wage_cohort_path1_012[i] = real_wage1[(C-1)+i, i+1]
+end
+
+real_wage_cohort_path2_012 = zeros(C-1)
+for i in 1:C-1
+        real_wage_cohort_path2_012[i] = real_wage2[(C-1)+i, i+1]
+end
+
+# plot(1:(C-1), real_wage_cohort_path1_011, label = "location 1 (baseline)")
+# plot!(1:(C-1), real_wage_cohort_path2_011, label = "location 1 (counterfactual)")
+# plot!(1:(C-1), real_wage_cohort_path1_012, label = "location 2 (baseline)")
+# plot!(1:(C-1), real_wage_cohort_path2_012, label = "location 2 (counterfactual)")
+# xlabel!("age")
+# ylabel!("real wage")
+# savefig("../output/transition/prod_real_wage_cohort_0.pdf")
 
 
-plot(0:10, L1[3, :1:11], label = "location 1 (baseline)")
-plot!(0:10, L1[C+3, :1:11], label = "location 2 (baseline)")
-plot!(0:10, L2[3, :1:11], label = "location 1 (counterfactual)")
-plot!(0:10, L2[C+3, :1:11], label = "location 2 (counterfactual)")
-xlabel!("period")
-ylabel!("population")
-savefig("../output/transition/prod_pop_age2.pdf")
+# compute a steady state and a transition path for 50 places 
 
-plot(0:10, L1[3, :1:11], label = "age 2 in location 1 (baseline)")
-plot!(0:10, L1[C, :1:11], label = "age 7 in location 1 (baseline)")
-plot!(0:10, L2[3, :1:11], label = "age 2 in location 1 (counterfactual)")
-plot!(0:10, L2[C, :1:11], label = "age 7 in location 1 (counterfactual)")
-xlabel!("period")
-ylabel!("population")
-savefig("../output/transition/prod_pop_age2_7.pdf")
+N = 50
+
+# amenities 
+B_period = fill(1.0, (R*N*C))
+
+B = repeat(B_period, 1, T)
+
+# survival probabilities
+s_period = repeat([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], R)
+# the survival probability for the youngest race 1, ..., the survival probability for the second oldest race 1, ...
+# the survival probability for the youngest race 2, ..., the survival probability for the second oldest race 2, ...
+s = repeat(s_period, 1, T)
+
+
+# migration costs 
+# note that the oldest can no longer migrate
+
+temp = fill(1.0, N, N)
+temp = temp - Diagonal(fill(1.0, N))
+τ_period = repeat(temp, R, C-1)
+τ_period = reshape(τ_period', (N*R*N*(C-1)))
+
+τ = repeat(τ_period, 1, T)
+
+# place-specific shifter of rent 
+r_bar_period = fill(0.1, N)
+
+r_bar = repeat(r_bar_period, 1, T)
+
+# place-specific elasticity of rent 
+η_period = fill(0.5, N)
+
+η = repeat(η_period, 1, T)
+
+# productivity
+A_period = Vector(51.0:100.0)
+
+# the productivity in place 1, the productivity in place 2
+
+A = repeat(A_period, 1, T)
+
+# cohort-specific productivity 
+κ_0_period = fill(1/7, N*(C-1))
+
+κ_0 = repeat(κ_0_period, 1, T)
+
+# race-specific productivity (within cohorts)
+
+κ_1_period = fill(1/2, N*R*(C-1))
+# the relative productivity of race1 within the oldest in place 1, ..., the relative productivity of race1 within the second youngest in place 1,
+# the relative productivity of race1 within the oldest in place 2, ..., the relative productivity of race1 within the second youngest in place 2,
+# the relative productivity of race2 within the oldest in place 1, ..., the relative productivity of race2 within the second youngest in place 1,
+# the relative productivity of race2 within the oldest in place 2, ..., the relative productivity of race2 within the second youngest in place 2
+
+κ_1 = repeat(κ_1_period, 1, T)
+
+# fertility per cohort-race-place 
+# I guess I need to restrict the value of α to get a steady state, 
+α_period = repeat([0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], R*N)
+# the fertility of the second youngest race 1 in place 1, ..., the fertility of the oldest race 1 in place 1,
+# the fertility of the second youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
+# the fertility of the second youngest race 2 in place 1, ..., the fertility of the oldest race 2 in place 1,
+# the fertility of the second youngest race 2 in place 2, ..., the fertility of the oldest race 2 in place 2
+
+α = repeat(α_period, 1, T)
+
+# immgrants from abroad 
+M_period = repeat([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], R*N)
+# the immigrants of the youngest race 1 in place 1, ..., the immigrants of the oldest race 1 in place 1,
+# the immigrants of the youngest race 1 in place 2, ..., the immigrants of the oldest race 1 in place 2,
+# ...,
+# the immigrants of the youngest race 2 in place 2, ..., the immigrants of the oldest race 2 in place 2.
+
+M = repeat(M_period, 1, T)
+
+
+# prepare for comparative transition paths
+
+L_in = fill(10, (R*N*C, T))
+
+LV_100 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s[:, T], τ[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
+
+V_mat_100_2 = reshape(LV_100[:, 2], C, R*N)'
+L_mat_100_2 = reshape(LV_100[:, 1], C, R*N)'
+
+L_mat_100 = reshape(LV_100[:, 1], C, R*N)'
+V_mat_100 = reshape(LV_100[:, 2], C, R*N)'
+real_wage_mat_100 = reshape(LV_100[1:N*R*(C-1), 3], C-1, R*N)'
+
+maximum(abs.(L_mat_100[1, :] - L_mat_100[3, :]))
+
+# I compute populations forward, given expected values.
+# Then given populations, I update expected values.
+
+λ_2 = 1.0
+
+L_in = fill(10.0, (R*N*C), T)
+
+V_in = fill(1.0, (R*N*C), T)
+V_in_2 = fill(2.0, (R*N*C), T)
+
+# the last period is the steady state
+L_in[:, T] = LV_100[:, 1]
+V_in[:, T] = LV_100[:, 2]
+V_in_2[:, T] = LV_100[:, 2]
+
+# the initial period (0) is the steady state
+L_in[:, 1] = LV_100[:, 1]
+V_in[:, 1] = LV_100[:, 2]
+V_in_2[:, 1] = LV_100[:, 2]
+# the "perceived" expected value before an unanticipated (MIT) shock happens in period 1
+
+path1 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+V1 = path1[:, 3:2+T]
+L1 = path1[:, (3+T):(2+2*T)]
+real_wage1 = path1[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
+
+A_2 = copy(A)
+A_2[1, 4] = 150
+A_2
+
+path2 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A_2, r_bar, η, γ, B, tol, maxit)
+
+V2 = path2[:, 3:3+(T-1)]
+L2 = path2[:, 3+(T-1)+1:3+2*(T-1)]
+real_wage2 = path2[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
+real_wage2
