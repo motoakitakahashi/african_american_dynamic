@@ -41,11 +41,14 @@ C = 8
 # the number of races 
 R = 2
 
+# the number of years in data (1940, 1950, ..., 2010)
+K = 8
+
 # for parameters, columns generically represent periods,
 # rows are races/places 
 
 # migration elesticity
-ν = fill(1.310, 1, T)
+ν = fill(1.328, 1, T)
 
 # elasticity of substitution between ages 
 σ_0 = fill(1/0.4488, 1, T) 
@@ -58,6 +61,7 @@ R = 2
 
 # amenities 
 amenity_data = CSV.read("../mig_wage/output/csv/amenity_matrix.csv")
+# amenity_data = CSV.read("../mig_wage/output/csv/amenity_matrix_oridess.csv")
 
 amenity_mat = convert(Matrix, amenity_data)
 amenity_1940 = amenity_mat[:, 1] # suppose that amenities in 1940 are the same as those in 1950
@@ -88,6 +92,7 @@ s = hcat(s_mat, s_mat2)
 # migration costs 
 # note that the oldest can no longer migrate
 τ_data = CSV.read("../mig_wage/output/csv/tau_matrix.csv")
+# τ_data = CSV.read("../mig_wage/output/csv/tau_matrix_oridess.csv")
 τ_mat = convert(Matrix, τ_data)
 
 # in τ_data, N×N migration cost matrices are filled as follows.
@@ -145,7 +150,7 @@ A_data = CSV.read("../elas_sub/output/csv/loc_prod_matrix.csv")
 
 A_mat_1 =  convert(Matrix, A_data)
 
-A_mat_2 = repeat(A_mat_1[:, 8], 1, 100)
+A_mat_2 = repeat(A_mat_1[:, K], 1, 100)
 
 
 A = hcat(A_mat_1, A_mat_2)
@@ -156,7 +161,7 @@ A[:, 2] - A[:, 1]
 κ_0_data = CSV.read("../elas_sub/output/csv/age_prod_matrix.csv")
 κ_0_mat_1 = convert(Matrix, κ_0_data)
 
-κ_0_mat_2 = repeat(κ_0_mat_1[:, 8], 1, 100)
+κ_0_mat_2 = repeat(κ_0_mat_1[:, K], 1, 100)
 
 
 κ_0 = hcat(κ_0_mat_1, κ_0_mat_2)
@@ -172,7 +177,7 @@ A[:, 2] - A[:, 1]
 κ_1_data = CSV.read("../elas_sub/output/csv/race_prod_matrix.csv")
 κ_1_mat_1 = convert(Matrix, κ_1_data)
 
-κ_1_mat_2 = repeat(κ_1_mat_1[:, 8], 1, 100)
+κ_1_mat_2 = repeat(κ_1_mat_1[:, K], 1, 100)
 
 κ_1 = hcat(κ_1_mat_1, κ_1_mat_2)
 
@@ -221,14 +226,16 @@ A[:, 2] - A[:, 1]
 
 
 # immgrants from abroad 
-M_data = CSV.read("../migration_flow/state/output/csv/newcomer__pos_matrix.csv")
-M_mat_1 = convert(Matrix, M_data)
+# M_data = CSV.read("../migration_flow/state/output/csv/newcomer__pos_matrix.csv")
+# M_mat_1 = convert(Matrix, M_data)
 
 # I assume that since period 9 (2020), noone comes to the US from abroad, and noone leaves the US to abroad
 
-M_mat_2 = repeat(zeros(R*C*N) , 1, 100)
+# M_mat_2 = repeat(zeros(R*C*N) , 1, 100)
 
-M = hcat(M_mat_1, M_mat_2)
+# M = hcat(M_mat_1, M_mat_2)
+
+M = repeat(zeros(R*C*N) , 1, 108)
 
 # M_period = [    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 #                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -554,9 +561,9 @@ V_in_2[:, T] = ss[:, 2]
 
 
 function transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
-        L = L_in
-        V = V_in 
-        V_new = V_in_2
+        L = copy(L_in)
+        V = copy(V_in) 
+        V_new = copy(V_in_2)
         dif = 1.0
         count = 0
         w = zeros(R*N*(C-1), T-1)
@@ -729,7 +736,9 @@ function transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_
 
         real_wage = [real_wage; zeros(R*N, T-1)]
 
-        output = [fill(count, N*R*C) fill(dif, N*R*C) V L real_wage]
+        wage_mat = [w; zeros(R*N, T-1)]
+
+        output = [fill(count, N*R*C) fill(dif, N*R*C) V L real_wage wage_mat]
         return output
 end
 
@@ -737,11 +746,279 @@ path1 = transition_path(R, C, N, T, λ_2, L_in, V_in, V_in_2, s, ν, τ, M, σ_0
 V1 = path1[:, 3:2+T]
 L1 = path1[:, (3+T):(2+2*T)]
 real_wage1 = path1[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
+nom_wage1 =  path1[1:N*R*(C-1), (2+3*T):(1+4*T-1)]
 
 
+L_in
 
-value_cohort_path1_011 = zeros(C)
-for i in 1:C
-        value_cohort_path1_011[i] = V1[i, i]
+V1
+
+L1
+
+# compute GDPs
+nom_wage1_big = zeros(R*N*C , (T-1))
+
+for i in 1:(T-1)
+        for j in 1:R 
+                for n in 1:N 
+                        nom_wage1_big[((j-1)*N*C+(n-1)*C+1):((j-1)*N*C+n*C) , i] = [0; nom_wage1[((j-1)*N*(C-1)+(n-1)*(C-1)+1):((j-1)*N*(C-1)+n*(C-1)), i]]
+                end
+        end
 end
 
+nom_wage1_big
+
+income1 = L1[:, 1:(T-1)] .* nom_wage1_big
+
+US_income1 = sum(income1, dims = 1)
+
+############################################################################################
+# heterogeneous rent elasticity
+
+# place-specific shifter of rent 
+r_bar_data2 = CSV.read("../rent_elas/output/csv/r_bar_2_hetero.csv")
+
+r_bar_period2 = r_bar_data2.r_bar_2
+
+r_bar2 = repeat(r_bar_period2, 1, T)
+
+# place-specific elasticity of rent 
+η_period2 = r_bar_data2.new_ivaw
+
+η2 = repeat(η_period2, 1, T)
+
+# steady state 
+
+ss2 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s[:, T], τ[:, T], r_bar2[:, T], η2[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
+
+V_mat_100_2 = reshape(ss2[:, 2], C, R*N)'
+L_mat_100_2 = reshape(ss2[:, 1], C, R*N)'
+
+real_wage_mat_100_2 = reshape(ss2[1:N*R*(C-1), 3], C-1, R*N)'
+
+V_in = fill(1.0, (R*N*C), T)
+V_in_2 = fill(2.0, (R*N*C), T)
+L_in_2 = copy(L_in)
+
+# the last period is the steady state
+L_in_2[:, T] = ss2[:, 1]
+V_in[:, T] = ss2[:, 2]
+V_in_2[:, T] = ss2[:, 2]
+
+path_h = transition_path(R, C, N, T, λ_2, L_in_2, V_in, V_in_2, s, ν, τ, M, σ_0, σ_1, κ_0, κ_1, A, r_bar2, η2, γ, B, tol, maxit)
+Vh = path_h[:, 3:2+T]
+Lh = path_h[:, (3+T):(2+2*T)]
+real_wage_h = path_h[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
+nom_wage_h =  path_h[1:N*R*(C-1), (2+3*T):(1+4*T-1)]
+
+# compute GDPs
+nom_wage_h_big = zeros(R*N*C , (T-1))
+
+for i in 1:(T-1)
+        for j in 1:R 
+                for n in 1:N 
+                        nom_wage_h_big[((j-1)*N*C+(n-1)*C+1):((j-1)*N*C+n*C) , i] = [0; nom_wage_h[((j-1)*N*(C-1)+(n-1)*(C-1)+1):((j-1)*N*(C-1)+n*(C-1)), i]]
+                end
+        end
+end
+
+nom_wage_h_big
+
+income_h = Lh[:, 1:(T-1)] .* nom_wage_h_big
+
+US_income_h = sum(income_h, dims = 1)
+
+
+
+# compute US income in data 
+wage_data = CSV.read("../wage/state_race_cohort/output/csv/wage_q.csv")
+w_mat_dt_1 = convert(Matrix, wage_data)
+w_mat_dt_2 = repeat(w_mat_dt_1[:, K], 1, 100)
+w_mat_dt = hcat(w_mat_dt_1, w_mat_dt_2)
+
+(nom_wage1_big[:, 1:K] - w_mat_dt[:, 1:K]) ./ w_mat_dt[:, 1:K]
+nom_wage1_big[:, 1:K]
+w_mat_dt[:, 1:K]
+
+income_dt = L_in .* w_mat_dt
+
+US_income_dt = sum(income_dt, dims = 1)
+
+w1_Ldt = L_in[:, 1:(T-1)] .* nom_wage1_big
+US_w1_L_dt = sum(w1_Ldt, dims = 1)
+
+wdt_L1 = w_mat_dt .* L1
+US_wdt_L1 = sum(wdt_L1, dims = 1)
+
+# counterfactual economy in which migration costs are zero 
+τ_path2 = zeros(R*C_τ*N*N, 108)
+
+ss_path2 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s[:, T], τ_path2[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
+
+# the last period is the steady state
+L_in_path2 = copy(L_in)
+L_in_path2[:, T] = ss_path2[:, 1]
+
+V_in_path2 = copy(V_in)
+V_in_path2[:, T] = ss_path2[:, 2]
+
+V_in_path2_2 = copy(V_in_2)
+V_in_path2_2[:, T] = ss_path2[:, 2]
+
+path2 = transition_path(R, C, N, T, λ_2, L_in_path2, V_in_path2, V_in_path2_2, s, ν, τ_path2, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+
+V2 = path2[:, 3:2+T]
+L2 = path2[:, (3+T):(2+2*T)]
+real_wage2 = path2[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
+nom_wage2 =  path2[1:N*R*(C-1), (2+3*T):(1+4*T-1)]
+
+nom_wage2_big = zeros(R*N*C , (T-1))
+
+for i in 1:(T-1)
+        for j in 1:R 
+                for n in 1:N 
+                        nom_wage2_big[((j-1)*N*C+(n-1)*C+1):((j-1)*N*C+n*C) , i] = [0; nom_wage2[((j-1)*N*(C-1)+(n-1)*(C-1)+1):((j-1)*N*(C-1)+n*(C-1)), i]]
+                end
+        end
+end
+
+nom_wage2_big
+
+income2 = L2[:, 1:(T-1)] .* nom_wage2_big
+
+US_income2 = sum(income2, dims = 1)
+
+# double the migration costs from 1940 to 2010
+
+τ_path3 = copy(τ)
+
+τ_path3[:,1:8] = 2*τ[:,1:8]
+
+τ_path3 
+
+ss_path3 = steady_state(tol, maxit, N, C, R, ν[1, T], σ_0[1, T], σ_1[1, T], γ[1, T], B[:, T], s[:, T], τ_path3[:, T], r_bar[:, T], η[:, T], A[:, T], κ_0[:, T], κ_1[:, T], α[:, T], L_in[:, T], λ)
+
+# the last period is the steady state
+L_in_path3 = copy(L_in)
+L_in_path3[:, T] = ss_path3[:, 1]
+
+V_in_path3 = copy(V_in)
+V_in_path3[:, T] = ss_path3[:, 2]
+
+V_in_path3_2 = copy(V_in_2)
+V_in_path3_2[:, T] = ss_path3[:, 2]
+
+path3 = transition_path(R, C, N, T, λ_2, L_in_path3, V_in_path3, V_in_path3_2, s, ν, τ_path3, M, σ_0, σ_1, κ_0, κ_1, A, r_bar, η, γ, B, tol, maxit)
+
+V3 = path3[:, 3:2+T]
+L3 = path3[:, (3+T):(2+2*T)]
+real_wage3 = path3[1:N*R*(C-1), (3+2*T):(2+3*T-1)]
+nom_wage3 =  path3[1:N*R*(C-1), (2+3*T):(1+4*T-1)]
+
+nom_wage3_big = zeros(R*N*C , (T-1))
+
+for i in 1:(T-1)
+        for j in 1:R 
+                for n in 1:N 
+                        nom_wage3_big[((j-1)*N*C+(n-1)*C+1):((j-1)*N*C+n*C) , i] = [0; nom_wage3[((j-1)*N*(C-1)+(n-1)*(C-1)+1):((j-1)*N*(C-1)+n*(C-1)), i]]
+                end
+        end
+end
+
+nom_wage3_big
+
+income3 = L3[:, 1:(T-1)] .* nom_wage3_big
+
+US_income3 = sum(income3, dims = 1)
+
+years = 10 * (194:201)
+plot(years, US_income1[1:K], legend=:topleft)
+plot!(years, US_income_h[1:K], legend=:topleft)
+
+plot!(years, US_w1_L_dt[1:K], legend=:topleft)
+plot!(years, US_wdt_L1[1:K], legend=:topleft)
+plot!(years, US_income2[1:K])
+plot!(years, US_income3[1:K])
+plot!(years, US_income_dt[1:K])
+
+US_income2[1:K] ./ US_income1[1:K]
+
+US_income3[1:K] ./ US_income1[1:K]
+
+sum([1 3; 5 7], dims = 1)
+
+
+nom_wage1
+w_mat_dt
+
+# compare populations from the model and those in data 
+USpop1 = sum(L1, dims = 1)
+USpop_dt = sum(L_in, dims = 1)
+
+# compute the share of African Americans in the South 
+
+# read the concordance table mapping geographic units to the South 
+
+geo_south = CSV.read("../geo_unit/output/my_geo_south.csv")
+
+south_ind = geo_south.south
+# takes 0 if the location is in the North,
+# takes 1 if the location is in the South.
+
+south_pop = zeros(2*R, T)
+south_pop_h = zeros(2*R, T)
+# columns are periods 
+# rows are:
+# (i) races are in the outer tier,
+# (ii) north/south are in the inner tier
+
+for t in 1:T 
+        for i in 1:R 
+                for n in 1:N 
+                        northorsouth = south_ind[n]
+                        temp = L1[((i-1)*N*C+(n-1)*C+1):((i-1)*N*C+n*C), t]
+                        temp2 = Lh[((i-1)*N*C+(n-1)*C+1):((i-1)*N*C+n*C), t]
+                        south_pop[(i-1)*2+1+northorsouth , t] = south_pop[(i-1)*2+1+northorsouth , t] + sum(temp)
+                        south_pop_h[(i-1)*2+1+northorsouth , t] = south_pop_h[(i-1)*2+1+northorsouth , t] + sum(temp2)
+                end
+        end
+end
+
+south_share_b = south_pop[4, :] ./ (south_pop[3, :] + south_pop[4, :])
+south_share_nb = south_pop[2, :] ./ (south_pop[1, :] + south_pop[2, :])
+
+south_share_b_h = south_pop_h[4, :] ./ (south_pop_h[3, :] + south_pop_h[4, :])
+south_share_nb_h = south_pop_h[2, :] ./ (south_pop_h[1, :] + south_pop_h[2, :])
+
+L_in
+
+south_pop_dt = zeros(2*R, T)
+# columns are periods 
+# rows are:
+# (i) races are in the outer tier,
+# (ii) north/south are in the inner tier
+
+for t in 1:T 
+        for i in 1:R 
+                for n in 1:N 
+                        northorsouth = south_ind[n]
+                        temp = L_in[((i-1)*N*C+(n-1)*C+1):((i-1)*N*C+n*C), t]
+                        south_pop_dt[(i-1)*2+1+northorsouth , t] = south_pop_dt[(i-1)*2+1+northorsouth , t] + sum(temp)
+                end
+        end
+end
+
+south_pop_dt 
+
+south_share_b_dt = south_pop_dt[4, :] ./ (south_pop_dt[3, :] + south_pop_dt[4, :])
+south_share_nb_dt = south_pop_dt[2, :] ./ (south_pop_dt[1, :] + south_pop_dt[2, :])
+
+years = 10 * (194:201)
+plot(years, south_share_b[1:K], ylims = (0, 1))
+plot!(years, south_share_b_h[1:K])
+plot!(years, south_share_b_dt[1:K])
+
+
+plot!(years, south_share_nb[1:K])
+plot!(years, south_share_nb_h[1:K])
+plot!(years, south_share_nb_dt[1:K])
